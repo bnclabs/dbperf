@@ -6,6 +6,16 @@ import "math/rand"
 
 var _ = fmt.Sprintf("dummy")
 
+var rndscale = int64(3)
+var bitmask = [8]byte{1, 2, 4, 8, 16, 32, 64, 128}
+var zeros = make([]byte, 4096)
+
+func init() {
+	for i := range zeros {
+		zeros[i] = '0'
+	}
+}
+
 // Generate presorted load, always return unique key,
 // return nil after `n` keys.
 func Generateloads(keylen, n int64) func([]byte) []byte {
@@ -76,7 +86,7 @@ func Generateread(keylen, loadn, seedl, seedc int64) func([]byte) []byte {
 	return func(key []byte) []byte {
 		key = Fixbuffer(key, int64(keylen))
 		copy(key, zeros)
-		keynum, lcount, rndl = getkey(rndl, rndc, seedl, lcount, loadn, 0)
+		keynum, lcount, rndl = getkey(rndl, rndc, seedl, lcount, loadn)
 		ascii := strconv.AppendInt(textint[:0], int64(keynum), 10)
 		copy(key[keylen-int64(len(ascii)):keylen], ascii)
 		return key
@@ -93,7 +103,7 @@ func Generateupdate(keylen, loadn, seedl, seedc int64) func([]byte) []byte {
 	return func(key []byte) []byte {
 		key = Fixbuffer(key, int64(keylen))
 		copy(key, zeros)
-		keynum, lcount, rndl = getkey(rndl, rndc, seedl, lcount, loadn, 0)
+		keynum, lcount, rndl = getkey(rndl, rndc, seedl, lcount, loadn)
 		ascii := strconv.AppendInt(textint[:0], int64(keynum), 10)
 		copy(key[keylen-int64(len(ascii)):keylen], ascii)
 		return key
@@ -109,7 +119,7 @@ func Generatedelete(keylen, loadn, seedl, seedc int64) func([]byte) []byte {
 	return func(key []byte) []byte {
 		key = Fixbuffer(key, int64(keylen))
 		copy(key, zeros)
-		keynum, lcount, rndl = getkey(rndl, rndc, seedl, lcount, loadn, 1)
+		keynum, lcount, rndl = getkey(rndl, rndc, seedl, lcount, loadn)
 		ascii := strconv.AppendInt(textint[:0], int64(keynum), 10)
 		copy(key[keylen-int64(len(ascii)):keylen], ascii)
 		return key
@@ -129,7 +139,7 @@ func makeuniquekey(rnd *rand.Rand, bitmap []byte, intn int64) int64 {
 
 func getkey(
 	rndl, rndc *rand.Rand,
-	seedl, lcount, loadn, rem int64) (keynum, lcount1 int64, rndl1 *rand.Rand) {
+	seedl, lcount, loadn int64) (keynum, lcount1 int64, rndl1 *rand.Rand) {
 
 	loadn1 := loadn * rndscale
 	intn := int64(9223372036854775807) - loadn1
@@ -144,18 +154,5 @@ func getkey(
 	if lcount >= loadn && (lcount%loadn) == 0 {
 		rndl = rand.New(rand.NewSource(seedl))
 	}
-	if (keynum % 2) != rem {
-		return getkey(rndl, rndc, seedl, lcount, loadn, rem)
-	}
 	return keynum, lcount, rndl
-}
-
-var rndscale = int64(3)
-var bitmask = [8]byte{1, 2, 4, 8, 16, 32, 64, 128}
-var zeros = make([]byte, 4096)
-
-func init() {
-	for i := range zeros {
-		zeros[i] = '0'
-	}
 }
