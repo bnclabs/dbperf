@@ -13,4 +13,4 @@ coverage:
 	rm -rf coverage.out
 
 clean:
-	rm -rf coverage.out dbperf
+	rm -rf coverage.out dbperf lmdb.data/
