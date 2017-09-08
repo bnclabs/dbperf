@@ -9,7 +9,7 @@ func dollrb() error {
 	valcapacity := int64(float64(options.entries*options.vallen) * 1.2)
 	setts := s.Settings{"keycapacity": keycapacity, "valcapacity": valcapacity}
 	llrb := gsllrb.NewLLRB1("perf", setts)
-	genkey := Generateloads(int64(options.keylen), int64(options.entries))
+	genkey := Generateloadr(int64(options.keylen), int64(options.entries), 100)
 	key := make([]byte, options.keylen*2)
 	val := make([]byte, options.vallen*2)
 	for key = genkey(key); key != nil; key = genkey(key) {

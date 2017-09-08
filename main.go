@@ -5,6 +5,7 @@ import "flag"
 
 var options struct {
 	db      string
+	seed    int
 	path    string
 	entries int
 	keylen  int
@@ -19,13 +20,15 @@ func optparse(args []string) {
 	f.StringVar(&options.db, "db", "llrb",
 		"pick db storage to performance torture.")
 	f.StringVar(&options.path, "path", "",
-		"db path to open")
+		"db path to open.")
 	f.IntVar(&options.entries, "n", 1000000,
-		"db path to open")
+		"maximum number entries to load/create.")
 	f.IntVar(&options.keylen, "key", 32,
-		"db path to open")
+		"key length for each entry, must be > 0.")
 	f.IntVar(&options.vallen, "val", 0,
-		"db path to open")
+		"value length for each entry >= 0.")
+	f.IntVar(&options.seed, "seed", 0,
+		"seed to use for random generation.")
 	f.Parse(args)
 
 	// initialize value

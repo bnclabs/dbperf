@@ -34,7 +34,7 @@ func initlmdb() (*lmdb.Env, error) {
 	}
 
 	env.SetMaxDBs(1)
-	size := 1000000000
+	size := 14 * 1024 * 1024 * 1024
 	env.SetMapSize(int64(size))
 
 	// FixedMap   Danger zone. Map memory at a fixed address.
@@ -63,19 +63,19 @@ func initlmdb() (*lmdb.Env, error) {
 }
 
 func lmdbLoad(env *lmdb.Env, dbi lmdb.DBI) error {
-	genkey := Generateloads(int64(options.keylen), int64(options.entries))
+	genkey := Generateloadr(int64(options.keylen), int64(options.entries), 100)
 	key := make([]byte, options.keylen*2)
-	for key = genkey(key); key != nil; key = genkey(key) {
-		err := env.Update(func(txn *lmdb.Txn) (err error) {
+	err := env.Update(func(txn *lmdb.Txn) (err error) {
+		for key = genkey(key); key != nil; key = genkey(key) {
 			if err := txn.Put(dbi, key, value, 0); err != nil {
 				return err
 			}
-			return nil
-		})
-		if err != nil {
-			log.Errorf("lmdb.Update(%q):%v", key, err)
-			return err
 		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("lmdb.Update(%q):%v", key, err)
+		return err
 	}
 	return nil
 }
