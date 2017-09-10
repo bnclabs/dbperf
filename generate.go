@@ -55,6 +55,7 @@ func Generateloadr(keylen, n, seed int64) func([]byte) []byte {
 		ascii := strconv.AppendInt(textint[:0], keynum, 10)
 		copy(key[keylen-int64(len(ascii)):keylen], ascii)
 		count++
+		//fmt.Println(string(key))
 		return key
 	}
 }
@@ -79,9 +80,12 @@ func Generatecreate(keylen, loadn, seed int64) func([]byte) []byte {
 
 func Generateread(keylen, loadn, seedl, seedc int64) func([]byte) []byte {
 	var textint [16]byte
+	var rndl, rndc *rand.Rand
 
-	rndl := rand.New(rand.NewSource(seedl))
-	rndc := rand.New(rand.NewSource(seedc))
+	rndl = rand.New(rand.NewSource(seedl))
+	if seedc > 0 {
+		rndc = rand.New(rand.NewSource(seedc))
+	}
 	keynum, lcount := int64(0), int64(0)
 	return func(key []byte) []byte {
 		key = Fixbuffer(key, int64(keylen))
@@ -145,7 +149,7 @@ func getkey(
 	intn := int64(9223372036854775807) - loadn1
 	if lcount < loadn { // from load pool, headstart
 		keynum = int64(rndl.Intn(int(loadn1)))
-	} else if (lcount % 3) == 0 { // from create pool
+	} else if rndc != nil && (lcount%3) == 0 { // from create pool
 		keynum = loadn1 + int64(rndc.Intn(int(intn)))
 	} else { // from load pool
 		keynum = int64(rndl.Intn(int(loadn1)))

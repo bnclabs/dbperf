@@ -1,15 +1,24 @@
 package main
 
 import "github.com/prataprc/golog"
-import s "github.com/prataprc/gosettings"
 import gsllrb "github.com/prataprc/gostore/llrb"
 
 func dollrb() error {
-	keycapacity := int64(float64(options.entries*options.keylen) * 1.2)
-	valcapacity := int64(float64(options.entries*options.vallen) * 1.2)
-	setts := s.Settings{"keycapacity": keycapacity, "valcapacity": valcapacity}
-	llrb := gsllrb.NewLLRB1("perf", setts)
-	genkey := Generateloadr(int64(options.keylen), int64(options.entries), 100)
+	err := llrbLoad()
+	return err
+}
+
+func llrbLoad() error {
+	var genkey func([]byte) []byte
+
+	klen, n := int64(options.keylen), int64(options.entries)
+	if options.seed > 0 {
+		genkey = Generateloadr(klen, n, int64(options.seed))
+	} else {
+		genkey = Generateloads(klen, n)
+	}
+
+	llrb := gsllrb.NewLLRB1("perf", nil)
 	key := make([]byte, options.keylen*2)
 	val := make([]byte, options.vallen*2)
 	for key = genkey(key); key != nil; key = genkey(key) {
