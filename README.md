@@ -1,1 +1,1 @@
-Torture test and benchmark data stores.
+Performance benchmark data stores.

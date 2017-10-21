@@ -13,4 +13,4 @@ coverage:
 	rm -rf coverage.out
 
 clean:
-	rm -rf coverage.out dbperf lmdb.data/ clone-lmdb.data/
+	rm -rf coverage.out dbtest

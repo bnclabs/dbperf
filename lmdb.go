@@ -2,178 +2,78 @@ package main
 
 import "os"
 import "fmt"
+import "sync"
 import "time"
+import "runtime"
+import "sync/atomic"
 import "math/rand"
+import "path/filepath"
 
 import "github.com/prataprc/golog"
-import humanize "github.com/dustin/go-humanize"
 import "github.com/bmatsuo/lmdb-go/lmdb"
 
-func dolmdb() error {
-	env, dbi, err := initlmdb(lmdb.NoSync | lmdb.NoMetaSync)
+func perflmdb() error {
+	path := lmdbpath()
+	defer func() {
+		if err := os.RemoveAll(path); err != nil {
+			log.Errorf("%v", err)
+		}
+	}()
+	fmt.Printf("LMDB path %q\n", path)
+
+	env, dbi, err := initlmdb(path, lmdb.NoSync|lmdb.NoMetaSync)
 	if err != nil {
 		return err
 	}
 	defer env.Close()
 
-	var seedl, seedc int64
-
-	seedl = int64(options.seed)
-	if options.writers > 0 {
-		seedc = seedl + 100
-	}
+	seedl, seedc := int64(options.seed), int64(options.seed)+100
+	fmt.Printf("Seed for load: %v, for ops: %v\n", seedl, seedc)
 	if err = lmdbLoad(env, dbi, seedl); err != nil {
 		return err
 	}
-	if options.clone {
-		lmdbClone(env, dbi)
-	} else if options.scanall {
-		lmdbScanall(env, dbi)
+
+	var wg sync.WaitGroup
+	n := atomic.LoadInt64(&numentries)
+	fin := make(chan struct{})
+
+	if options.inserts+options.upserts+options.deletes > 0 {
+		// writer routines
+		go lmdbWriter(env, dbi, n, seedc, fin, &wg)
+		wg.Add(1)
 	}
-	if options.getters > 0 {
-		lmdbGetters(seedl, seedc)
+	if options.gets+options.iterates > 0 {
+		// reader routines
+		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+			go lmdbGetter(path, n, seedl, seedc, fin, &wg)
+			go lmdbRanger(path, n, seedl, seedc, fin, &wg)
+			wg.Add(2)
+		}
 	}
-	//if options.rangers > 0 {
-	//	lmdbRangers(env, dbi)
-	//}
-	//if options.writers > 0 {
-	//	lmdbWriters(env, dbi)
-	//}
+	wg.Wait()
+	close(fin)
+
+	fmt.Printf("LMDB total indexed %v items\n", getlmdbCount(env, dbi))
+
 	return nil
 }
 
-func lmdbLoad(env *lmdb.Env, dbi lmdb.DBI, seedl int64) error {
-	var genkey func([]byte) []byte
+func initlmdb(
+	path string, envflags uint) (env *lmdb.Env, dbi lmdb.DBI, err error) {
 
-	klen, n := int64(options.keylen), int64(options.entries)
-	if seedl > 0 {
-		genkey = Generateloadr(klen, n, int64(seedl))
-	} else {
-		genkey = Generateloads(klen, n)
-	}
-
-	now := time.Now()
-	key := make([]byte, options.keylen*2)
-	err := env.Update(func(txn *lmdb.Txn) (err error) {
-		for key = genkey(key); key != nil; key = genkey(key) {
-			fmt.Printf("%s\n", key)
-			if err := txn.Put(dbi, key, value, 0); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		log.Errorf("lmdb.Update(%q):%v", key, err)
-		return err
-	}
-	sz, _ := DirSize(options.path)
-	size := humanize.Bytes(uint64(sz))
-	entries := lmdbStat(env, dbi).Entries
-	fmsg := "loaded %v entries in %v, disk size %v\n"
-	fmt.Printf(fmsg, entries, time.Since(now), size)
-	return nil
-}
-
-func lmdbClone(env *lmdb.Env, dbi lmdb.DBI) error {
-	clonepath := "clone-" + options.path
-	os.Mkdir(clonepath, 0755)
-
-	now := time.Now()
-
-	err := env.Copy(clonepath)
-	if err != nil {
-		log.Errorf("lmdb.Copy(%q): %v", clonepath, err)
-	}
-
-	sz, _ := DirSize(clonepath)
-	size := humanize.Bytes(uint64(sz))
-	entries := lmdbStat(env, dbi).Entries
-	fmsg := "cloned %v entries in %v, disk size %v\n"
-	fmt.Printf(fmsg, entries, time.Since(now), size)
-	defer os.RemoveAll(clonepath)
-	return err
-}
-
-func lmdbScanall(env *lmdb.Env, dbi lmdb.DBI) error {
-	now := time.Now()
-	err := env.View(func(txn *lmdb.Txn) error {
-		cur, err := txn.OpenCursor(dbi)
-		if err != nil {
-			log.Errorf("lmdb.OpenCursor(): %v", err)
-			return err
-		}
-		defer cur.Close()
-
-		for {
-			if _, _, err := cur.Get(nil, nil, lmdb.Next); lmdb.IsNotFound(err) {
-				return nil
-			} else if err != nil {
-				log.Errorf("lmdb.Get(): %v", err)
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		log.Errorf("lmdb.View(): %v", err)
-	} else {
-		entries := lmdbStat(env, dbi).Entries
-		fmsg := "full table scan of %v entries took %v\n"
-		fmt.Printf(fmsg, entries, time.Since(now))
-	}
-	return err
-}
-
-func lmdbGetters(seedl, seedc int64) {
-	getter := func(getid int) {
-		time.Sleep(time.Duration(rand.Intn(10000)) * time.Millisecond)
-		env, dbi, err := readlmdb(0)
-		if err != nil {
-			return
-		}
-		defer env.Close()
-
-		klen, loadn := int64(options.keylen), int64(options.entries)
-		genkey := Generateread(klen, loadn, seedl, seedc)
-		key := make([]byte, options.keylen)
-
-		now, count := time.Now(), 0
-		for key = genkey(key); key != nil; key = genkey(key) {
-			if err := env.View(func(txn *lmdb.Txn) error {
-				_, err := txn.Get(dbi, key)
-				return err
-			}); err != nil {
-				log.Errorf("%v lmdb.View(%s): %v", getid, key, err)
-				return
-			} else if count = count + 1; (count % 1000000) == 0 {
-				fmsg := "%v: Get 1000000 random docs in %v\n"
-				fmt.Printf(fmsg, getid, time.Since(now))
-				now = time.Now()
-			}
-		}
-		rem := count % 1000000
-		fmsg := "%v: Get %v random docs in %v\n"
-		fmt.Printf(fmsg, getid, rem, time.Since(now))
-	}
-
-	for i := 0; i < options.getters; i++ {
-		go getter(i)
-	}
-}
-
-func initlmdb(envflags uint) (*lmdb.Env, lmdb.DBI, error) {
-	var dbi lmdb.DBI
-
-	env, err := lmdb.NewEnv()
+	env, err = lmdb.NewEnv()
 	if err != nil {
 		log.Errorf("%v", err)
-		return nil, dbi, err
+		return
 	}
+	defer func() {
+		if err != nil {
+			env.Close()
+		}
+	}()
 
 	env.SetMaxDBs(100)
-	size := 14 * 1024 * 1024 * 1024
-	env.SetMapSize(int64(size))
+	env.SetMapSize(14 * 1024 * 1024 * 1024) // 14GB
 
 	// FixedMap   Danger zone. Map memory at a fixed address.
 	// Readonly   Used in several functions to denote an object as readonly.
@@ -181,21 +81,19 @@ func initlmdb(envflags uint) (*lmdb.Env, lmdb.DBI, error) {
 	// NoMetaSync Don't fsync metapage after commit.
 	// NoSync     Don't fsync after commit.
 	// MapAsync   Flush asynchronously when using the WriteMap flag.
-	err = env.Open(options.path, envflags, 0755)
+	err = env.Open(path, envflags, 0755)
 	if err != nil {
-		env.Close()
 		log.Errorf("%v", err)
-		return env, dbi, err
+		return
 	}
 
 	// Clear stale readers
-	stalerds, err := env.ReaderCheck()
+	stalereads, err := env.ReaderCheck()
 	if err != nil {
-		env.Close()
 		log.Errorf("%v", err)
-		return env, dbi, err
-	} else if stalerds > 0 {
-		log.Infof("cleared %d reader slots from dead processes", stalerds)
+		return
+	} else if stalereads > 0 {
+		log.Infof("cleared %d reader slots from dead processes", stalereads)
 	}
 
 	// load lmdb
@@ -204,13 +102,15 @@ func initlmdb(envflags uint) (*lmdb.Env, lmdb.DBI, error) {
 		return err
 	})
 	if err != nil {
-		log.Errorf("lmdb.CreateDBI():%v", err)
-		return env, dbi, err
+		log.Errorf("%v", err)
+		return
 	}
-	return env, dbi, nil
+	return
 }
 
-func readlmdb(envflags uint) (*lmdb.Env, lmdb.DBI, error) {
+func readlmdb(path string, envflags uint) (*lmdb.Env, lmdb.DBI, error) {
+	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+
 	var dbi lmdb.DBI
 
 	env, err := lmdb.NewEnv()
@@ -227,7 +127,7 @@ func readlmdb(envflags uint) (*lmdb.Env, lmdb.DBI, error) {
 	// NoMetaSync Don't fsync metapage after commit.
 	// NoSync     Don't fsync after commit.
 	// MapAsync   Flush asynchronously when using the WriteMap flag.
-	err = env.Open(options.path, envflags, 0755)
+	err = env.Open(path, envflags, 0755)
 	if err != nil {
 		env.Close()
 		log.Errorf("%v", err)
@@ -246,12 +146,253 @@ func readlmdb(envflags uint) (*lmdb.Env, lmdb.DBI, error) {
 	return env, dbi, nil
 }
 
-func lmdbStat(env *lmdb.Env, dbi lmdb.DBI) (stat *lmdb.Stat) {
-	if err := env.View(func(txn *lmdb.Txn) (err error) {
-		stat, err = txn.Stat(dbi)
+func lmdbLoad(env *lmdb.Env, dbi lmdb.DBI, seedl int64) error {
+	var key, value []byte
+
+	markercount, count := int64(1000000), int64(0)
+	klen, vlen := int64(options.keylen), int64(options.vallen)
+	g := Generateloadr(klen, vlen, int64(options.load), int64(seedl))
+
+	populate := func(txn *lmdb.Txn) (err error) {
+		for i := 0; i < 1000000 && key != nil; i++ {
+			if err := txn.Put(dbi, key, value, 0); err != nil {
+				return err
+			}
+			count++
+			key, value = g(key, value)
+		}
 		return nil
-	}); err != nil {
-		log.Errorf("lmdb.View(): %v", err)
 	}
-	return stat
+	now, epoch := time.Now(), time.Now()
+	key, value = g(key, value)
+	for key != nil {
+		if err := env.Update(populate); err != nil {
+			log.Errorf("key %q err : %v", key, err)
+			return err
+		}
+		if count%markercount == 0 {
+			x := time.Since(now).Round(time.Second)
+			y := time.Since(epoch).Round(time.Second)
+			fmsg := "lmdbLoad {%v items in %v} {%v items in %v}\n"
+			fmt.Printf(fmsg, markercount, x, count, y)
+			now = time.Now()
+		}
+	}
+	atomic.AddInt64(&numentries, int64(options.load))
+	atomic.AddInt64(&totalwrites, int64(options.load))
+
+	count = int64(getlmdbCount(env, dbi))
+	fmt.Printf("Loaded %v items in %v\n", count, time.Since(now))
+	return nil
+}
+
+func lmdbWriter(
+	env *lmdb.Env, dbi lmdb.DBI, seedl, seedc int64,
+	fin chan struct{}, wg *sync.WaitGroup) {
+
+	var key, value []byte
+	var x, y, z int64
+	loadn := int64(options.load)
+	klen, vlen := int64(options.keylen), int64(options.vallen)
+	gcreate := Generatecreate(klen, vlen, loadn, seedc)
+	gupdate := Generateupdate(klen, vlen, loadn, seedl, seedc, -1)
+	gdelete := Generatedelete(klen, vlen, loadn, seedl, seedc, delmod)
+
+	put := func(txn *lmdb.Txn) (err error) {
+		if err := txn.Put(dbi, key, value, 0); err != nil {
+			return err
+		}
+		return nil
+	}
+	update := func(txn *lmdb.Txn) (err error) {
+		if err := txn.Put(dbi, key, value, 0); err != nil {
+			return err
+		}
+		return nil
+	}
+	delete := func(txn *lmdb.Txn) (err error) {
+		if err := txn.Del(dbi, key, nil); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	rnd := rand.New(rand.NewSource(seedl))
+	epoch, now, markercount := time.Now(), time.Now(), int64(1000000)
+	insn, upsn, deln := options.inserts, options.upserts, options.deletes
+	count := int64(0)
+	for totalops := insn + upsn + deln; totalops > 0; {
+		idx := rnd.Intn(totalops)
+		switch {
+		case idx < insn:
+			key, value = gcreate(key, value)
+			if err := env.Update(put); err != nil {
+				log.Errorf("key %q err : %v", key, err)
+				return
+			}
+			atomic.AddInt64(&numentries, 1)
+			x = atomic.AddInt64(&ninserts, 1)
+			insn--
+
+		case idx < upsn:
+			key, value = gupdate(key, value)
+			if err := env.Update(update); err != nil {
+				log.Errorf("key %q err : %v", key, err)
+				return
+			}
+			y = atomic.AddInt64(&nupserts, 1)
+			upsn--
+
+		case idx < deln:
+			key, value = gdelete(key, value)
+			if err := env.Update(delete); err != nil {
+				atomic.AddInt64(&xdeletes, 1)
+			} else {
+				atomic.AddInt64(&ndeletes, 1)
+			}
+			z = atomic.LoadInt64(&ndeletes) + atomic.LoadInt64(&xdeletes)
+			atomic.AddInt64(&numentries, -1)
+			deln--
+		}
+		totalops = insn + upsn + deln
+		if count%markercount == 0 {
+			a := time.Since(now).Round(time.Second)
+			b := time.Since(epoch).Round(time.Second)
+			fmsg := "lmdbWriter {%v,%v,%v in %v}, {%v ops %v}\n"
+			fmt.Printf(fmsg, x, y, z, b, markercount, a)
+			now = time.Now()
+		}
+		count++
+	}
+
+	n := atomic.AddInt64(&totalwrites, int64(x+y+z))
+
+	duration := time.Since(epoch)
+	wg.Done()
+	<-fin
+	fmsg := "at exit lmdbWriter {%v,%v,%v (%v) in %v}\n"
+	fmt.Printf(fmsg, x, y, z, n, duration)
+}
+
+func lmdbGetter(
+	path string, loadn, seedl, seedc int64,
+	fin chan struct{}, wg *sync.WaitGroup) {
+
+	env, dbi, err := readlmdb(path, 0)
+	if err != nil {
+		return
+	}
+	defer env.Close()
+
+	time.Sleep(time.Duration(rand.Intn(100)+300) * time.Millisecond)
+
+	var ngets, nmisses int64
+	var key []byte
+	g := Generateread(int64(options.keylen), loadn, seedl, seedc)
+
+	get := func(txn *lmdb.Txn) (err error) {
+		ngets++
+		_, err = txn.Get(dbi, key)
+		if err != nil {
+			nmisses++
+		}
+		return nil
+	}
+
+	epoch, now, markercount := time.Now(), time.Now(), int64(1000000)
+	for ngets+nmisses < int64(options.gets) {
+		key = g(key, atomic.LoadInt64(&ninserts))
+		env.View(get)
+		if (ngets+nmisses)%markercount == 0 {
+			x := time.Since(now).Round(time.Second)
+			y := time.Since(epoch).Round(time.Second)
+			fmsg := "lmdbGetter {%v items in %v} {%v:%v items in %v}\n"
+			fmt.Printf(fmsg, markercount, x, ngets, nmisses, y)
+			now = time.Now()
+		}
+	}
+	duration := time.Since(epoch)
+	wg.Done()
+	<-fin
+	fmsg := "at exit, lmdbGetter %v:%v items in %v\n"
+	fmt.Printf(fmsg, ngets, nmisses, duration)
+}
+
+func lmdbRanger(
+	path string, loadn, seedl, seedc int64,
+	fin chan struct{}, wg *sync.WaitGroup) {
+
+	env, dbi, err := readlmdb(path, 0)
+	if err != nil {
+		return
+	}
+	defer env.Close()
+
+	time.Sleep(time.Duration(rand.Intn(100)+300) * time.Millisecond)
+
+	var nranges, nmisses int64
+	var key []byte
+	g := Generateread(int64(options.keylen), loadn, seedl, seedc)
+
+	ranger := func(txn *lmdb.Txn) error {
+		cur, err := txn.OpenCursor(dbi)
+		if err != nil {
+			log.Errorf("lmdb.OpenCursor(): %v", err)
+			return err
+		}
+		defer cur.Close()
+
+		_, _, err = cur.Get(key, nil, 0)
+		for i := 0; i < options.limit; i++ {
+			nranges++
+			if err != nil {
+				nmisses++
+				return nil
+			}
+			_, _, err = cur.Get(nil, nil, lmdb.Next)
+		}
+		return nil
+	}
+
+	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
+	for nranges+nmisses < int64(options.iterates) {
+		key = g(key, atomic.LoadInt64(&ninserts))
+		env.View(ranger)
+		if (nranges+nmisses)%markercount == 0 {
+			x := time.Since(now).Round(time.Second)
+			y := time.Since(epoch).Round(time.Second)
+			fmsg := "lmdbRanger {%v items in %v} {%v:%v items in %v}\n"
+			fmt.Printf(fmsg, markercount, x, nranges, nmisses, y)
+			now = time.Now()
+		}
+	}
+	duration := time.Since(epoch)
+	wg.Done()
+	<-fin
+	fmsg := "at exit, lmdbRanger %v:%v items in %v\n"
+	fmt.Printf(fmsg, nranges, nmisses, duration)
+}
+
+func lmdbpath() string {
+	path := filepath.Join(os.TempDir(), "lmdb.data")
+	os.RemoveAll(path)
+	if err := os.MkdirAll(path, 0775); err != nil {
+		panic(err)
+	}
+	return path
+}
+
+func getlmdbCount(env *lmdb.Env, dbi lmdb.DBI) (count uint64) {
+	err := env.Update(func(txn *lmdb.Txn) (err error) {
+		stat, err := txn.Stat(dbi)
+		if err != nil {
+			return err
+		}
+		count = stat.Entries
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	return
 }

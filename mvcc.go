@@ -12,14 +12,14 @@ import "math/rand"
 
 import "github.com/prataprc/gostore/llrb"
 
-func perfllrb() error {
+func perfmvcc() error {
 	setts := llrb.Defaultsettings()
-	index := llrb.NewLLRB("dbtest", setts)
+	index := llrb.NewMVCC("dbtest", setts)
 	defer index.Destroy()
 
 	seedl, seedc := int64(options.seed), int64(options.seed)+100
 	fmt.Printf("Seed for load: %v, for ops: %v\n", seedl, seedc)
-	if err := llrbLoad(index, seedl); err != nil {
+	if err := mvccLoad(index, seedl); err != nil {
 		return err
 	}
 
@@ -29,18 +29,18 @@ func perfllrb() error {
 
 	if options.inserts+options.upserts+options.deletes > 0 {
 		// writer routines
-		go llrbWriter(index, n, seedl, seedc, fin, &wg)
+		go mvccWriter(index, n, seedl, seedc, fin, &wg)
 		wg.Add(1)
 	}
 	if options.gets > 0 {
 		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
-			go llrbGetter(index, n, seedl, seedc, fin, &wg)
+			go mvccGetter(index, n, seedl, seedc, fin, &wg)
 			wg.Add(1)
 		}
 	}
 	if options.iterates > 0 {
 		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
-			go llrbRanger(index, n, seedl, seedc, fin, &wg)
+			go mvccRanger(index, n, seedl, seedc, fin, &wg)
 			wg.Add(1)
 		}
 	}
@@ -48,12 +48,12 @@ func perfllrb() error {
 	close(fin)
 	time.Sleep(1 * time.Second)
 
-	fmt.Printf("LLRB total indexed %v items\n", index.Count())
+	fmt.Printf("MVCC total indexed %v items\n", index.Count())
 
 	return nil
 }
 
-func llrbLoad(index *llrb.LLRB, seedl int64) error {
+func mvccLoad(index *llrb.MVCC, seedl int64) error {
 	klen, vlen := int64(options.keylen), int64(options.vallen)
 	g := Generateloadr(klen, vlen, int64(options.load), int64(seedl))
 
@@ -69,12 +69,12 @@ func llrbLoad(index *llrb.LLRB, seedl int64) error {
 	return nil
 }
 
-var llrbsets = []func(index *llrb.LLRB, key, val, oldval []byte) uint64{
-	llrbSet1, llrbSet2, llrbSet3, llrbSet4,
+var mvccsets = []func(index *llrb.MVCC, key, val, oldval []byte) uint64{
+	mvccSet1, mvccSet2, mvccSet3, mvccSet4,
 }
 
-func llrbWriter(
-	index *llrb.LLRB, n, seedl, seedc int64,
+func mvccWriter(
+	index *llrb.MVCC, n, seedl, seedc int64,
 	fin chan struct{}, wg *sync.WaitGroup) {
 	var x, y, z int64
 
@@ -93,18 +93,18 @@ func llrbWriter(
 		switch {
 		case idx < insn:
 			key, value = gcreate(key, value)
-			llrbsets[0](index, key, value, oldvalue)
+			mvccsets[0](index, key, value, oldvalue)
 			atomic.AddInt64(&numentries, 1)
 			x = atomic.AddInt64(&ninserts, 1)
 			insn--
 		case idx < upsn:
 			key, value = gupdate(key, value)
-			llrbsets[0](index, key, value, oldvalue)
+			mvccsets[0](index, key, value, oldvalue)
 			y = atomic.AddInt64(&nupserts, 1)
 			upsn--
 		case idx < deln:
 			key, value = gdelete(key, value)
-			llrbdels[0](index, key, value, false /*lsm*/)
+			mvccdels[0](index, key, value, false /*lsm*/)
 			atomic.AddInt64(&numentries, -1)
 			z = atomic.AddInt64(&ndeletes, 1)
 			deln--
@@ -113,7 +113,7 @@ func llrbWriter(
 		if n := x + y + z; n%markercount == 0 {
 			a := time.Since(now).Round(time.Second)
 			b := time.Since(epoch).Round(time.Second)
-			fmsg := "llrbWriter {%v,%v,%v in %v}, {%v ops %v}\n"
+			fmsg := "mvccWriter {%v,%v,%v in %v}, {%v ops %v}\n"
 			fmt.Printf(fmsg, x, y, z, b, markercount, a)
 			now = time.Now()
 		}
@@ -126,7 +126,7 @@ func llrbWriter(
 	fmt.Printf(fmsg, x, y, z, n, duration)
 }
 
-func llrbSet1(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
+func mvccSet1(index *llrb.MVCC, key, value, oldvalue []byte) uint64 {
 	oldvalue, cas := index.Set(key, value, oldvalue)
 	//fmt.Printf("update1 %q %q %q \n", key, value, oldvalue)
 	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
@@ -135,7 +135,7 @@ func llrbSet1(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
 	return cas
 }
 
-func llrbSet2(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
+func mvccSet2(index *llrb.MVCC, key, value, oldvalue []byte) uint64 {
 	for i := 2; i >= 0; i-- {
 		oldvalue, oldcas, deleted, ok := index.Get(key, oldvalue)
 		if deleted || ok == false {
@@ -150,7 +150,7 @@ func llrbSet2(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
 	panic("unreachable code")
 }
 
-func llrbSet3(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
+func mvccSet3(index *llrb.MVCC, key, value, oldvalue []byte) uint64 {
 	txn := index.BeginTxn(0xC0FFEE)
 	oldvalue = txn.Set(key, value, oldvalue)
 	//fmt.Printf("update3 %q %q %q \n", key, value, oldvalue)
@@ -163,7 +163,7 @@ func llrbSet3(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
 	return 0
 }
 
-func llrbSet4(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
+func mvccSet4(index *llrb.MVCC, key, value, oldvalue []byte) uint64 {
 	txn := index.BeginTxn(0xC0FFEE)
 	cur := txn.OpenCursor(key)
 	oldvalue = cur.Set(key, value, oldvalue)
@@ -177,11 +177,11 @@ func llrbSet4(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
 	return 0
 }
 
-var llrbdels = []func(*llrb.LLRB, []byte, []byte, bool) (uint64, bool){
-	llrbDel1, llrbDel2, llrbDel3, llrbDel4,
+var mvccdels = []func(*llrb.MVCC, []byte, []byte, bool) (uint64, bool){
+	mvccDel1, mvccDel2, mvccDel3, mvccDel4,
 }
 
-func llrbDel1(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
+func mvccDel1(index *llrb.MVCC, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	var ok bool
 
 	oldvalue, cas := index.Delete(key, oldvalue, lsm)
@@ -193,7 +193,7 @@ func llrbDel1(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	return cas, ok
 }
 
-func llrbDel2(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
+func mvccDel2(index *llrb.MVCC, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	var ok bool
 
 	txn := index.BeginTxn(0xC0FFEE)
@@ -209,7 +209,7 @@ func llrbDel2(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	return 0, ok
 }
 
-func llrbDel3(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
+func mvccDel3(index *llrb.MVCC, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	var ok bool
 
 	txn := index.BeginTxn(0xC0FFEE)
@@ -226,7 +226,7 @@ func llrbDel3(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	return 0, ok
 }
 
-func llrbDel4(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
+func mvccDel4(index *llrb.MVCC, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	var ok bool
 
 	txn := index.BeginTxn(0xC0FFEE)
@@ -242,12 +242,12 @@ func llrbDel4(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	return 0, ok
 }
 
-var llrbgets = []func(x *llrb.LLRB, k, v []byte) ([]byte, uint64, bool, bool){
-	llrbGet1, llrbGet2, llrbGet3,
+var mvccgets = []func(x *llrb.MVCC, k, v []byte) ([]byte, uint64, bool, bool){
+	mvccGet1, mvccGet2, mvccGet3,
 }
 
-func llrbGetter(
-	index *llrb.LLRB, n, seedl, seedc int64,
+func mvccGetter(
+	index *llrb.MVCC, n, seedl, seedc int64,
 	fin chan struct{}, wg *sync.WaitGroup) {
 
 	var ngets, nmisses int64
@@ -259,35 +259,32 @@ func llrbGetter(
 	for ngets+nmisses < int64(options.gets) {
 		ngets++
 		key = g(key, atomic.LoadInt64(&ninserts))
-		if _, _, _, ok := llrbgets[0](index, key, value); ok == false {
+		if _, _, _, ok := mvccgets[0](index, key, value); ok == false {
 			nmisses++
 		}
 		if ngm := ngets + nmisses; ngm%markercount == 0 {
 			x := time.Since(now).Round(time.Second)
 			y := time.Since(epoch).Round(time.Second)
-			fmsg := "llrbGetter {%v items in %v} {%v:%v items in %v}\n"
+			fmsg := "mvccGetter {%v items in %v} {%v:%v items in %v}\n"
 			fmt.Printf(fmsg, markercount, x, ngets, nmisses, y)
 		}
 	}
 	duration := time.Since(epoch)
 	wg.Done()
 	<-fin
-	fmsg := "at exit, llrbGetter %v:%v items in %v\n"
+	fmsg := "at exit, mvccGetter %v:%v items in %v\n"
 	fmt.Printf(fmsg, ngets, nmisses, duration)
 }
 
-func llrbGet1(
-	index *llrb.LLRB, key, value []byte) ([]byte, uint64, bool, bool) {
+func mvccGet1(
+	index *llrb.MVCC, key, value []byte) ([]byte, uint64, bool, bool) {
 
-	//fmt.Printf("llrbGet1 %q\n", key)
-	//defer fmt.Printf("llrbGet1-abort %q\n", key)
 	return index.Get(key, value)
 }
 
-func llrbGet2(
-	index *llrb.LLRB, key, value []byte) ([]byte, uint64, bool, bool) {
+func mvccGet2(
+	index *llrb.MVCC, key, value []byte) ([]byte, uint64, bool, bool) {
 
-	//fmt.Printf("llrbGet2\n")
 	txn := index.BeginTxn(0xC0FFEE)
 	value, del, ok := txn.Get(key, value)
 	if ok == true {
@@ -300,13 +297,12 @@ func llrbGet2(
 			panic(fmt.Errorf("expected %q, got %q", value, cvalue))
 		}
 	}
-	//fmt.Printf("llrbGet2-abort\n")
 	txn.Abort()
 	return value, 0, del, ok
 }
 
-func llrbGet3(
-	index *llrb.LLRB, key, value []byte) ([]byte, uint64, bool, bool) {
+func mvccGet3(
+	index *llrb.MVCC, key, value []byte) ([]byte, uint64, bool, bool) {
 
 	view := index.View(0x1235)
 	value, del, ok := view.Get(key, value)
@@ -324,12 +320,12 @@ func llrbGet3(
 	return value, 0, del, ok
 }
 
-var llrbrngs = []func(index *llrb.LLRB, key, val []byte) int64{
-	llrbRange1, llrbRange2, llrbRange3, llrbRange4,
+var mvccrngs = []func(index *llrb.MVCC, key, val []byte) int64{
+	mvccRange1, mvccRange2, mvccRange3, mvccRange4,
 }
 
-func llrbRanger(
-	index *llrb.LLRB, n, seedl, seedc int64,
+func mvccRanger(
+	index *llrb.MVCC, n, seedl, seedc int64,
 	fin chan struct{}, wg *sync.WaitGroup) {
 
 	var nranges int64
@@ -339,17 +335,16 @@ func llrbRanger(
 	epoch, value := time.Now(), make([]byte, 16)
 	for nranges < int64(options.iterates) {
 		key = g(key, atomic.LoadInt64(&ninserts))
-		n := llrbrngs[0](index, key, value)
+		n := mvccrngs[0](index, key, value)
 		nranges += n
 	}
 	duration := time.Since(epoch)
 	wg.Done()
 	<-fin
-	fmt.Printf("at exit, llrbRanger %v items in %v\n", nranges, duration)
+	fmt.Printf("at exit, mvccRanger %v items in %v\n", nranges, duration)
 }
 
-func llrbRange1(index *llrb.LLRB, key, value []byte) (n int64) {
-	//fmt.Printf("llrbRange1 %q\n", key)
+func mvccRange1(index *llrb.MVCC, key, value []byte) (n int64) {
 	txn := index.BeginTxn(0xC0FFEE)
 	cur := txn.OpenCursor(key)
 	for i := 0; i < 100; i++ {
@@ -370,7 +365,7 @@ func llrbRange1(index *llrb.LLRB, key, value []byte) (n int64) {
 	return
 }
 
-func llrbRange2(index *llrb.LLRB, key, value []byte) (n int64) {
+func mvccRange2(index *llrb.MVCC, key, value []byte) (n int64) {
 	txn := index.BeginTxn(0xC0FFEE)
 	cur := txn.OpenCursor(key)
 	for i := 0; i < 100; i++ {
@@ -393,7 +388,7 @@ func llrbRange2(index *llrb.LLRB, key, value []byte) (n int64) {
 	return
 }
 
-func llrbRange3(index *llrb.LLRB, key, value []byte) (n int64) {
+func mvccRange3(index *llrb.MVCC, key, value []byte) (n int64) {
 	view := index.View(0x1236)
 	cur := view.OpenCursor(key)
 	for i := 0; i < 100; i++ {
@@ -416,7 +411,7 @@ func llrbRange3(index *llrb.LLRB, key, value []byte) (n int64) {
 	return
 }
 
-func llrbRange4(index *llrb.LLRB, key, value []byte) (n int64) {
+func mvccRange4(index *llrb.MVCC, key, value []byte) (n int64) {
 	view := index.View(0x1237)
 	cur := view.OpenCursor(key)
 	for i := 0; i < 100; i++ {
