@@ -36,6 +36,7 @@ func perfllrb() error {
 		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
 			go llrbGetter(index, n, seedl, seedc, fin, &wg)
 			wg.Add(1)
+			break
 		}
 	}
 	if options.iterates > 0 {

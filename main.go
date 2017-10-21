@@ -59,6 +59,3 @@ func main() {
 		perfbubt()
 	}
 }
-
-func perfbubt() {
-}

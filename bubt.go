@@ -1,5 +1,3 @@
-// +build ignore
-
 package main
 
 import "io"
@@ -10,14 +8,13 @@ import "time"
 import "bytes"
 import "runtime"
 import "strconv"
-import "sync/atomic"
 import "path/filepath"
 import "math/rand"
 
 import "github.com/prataprc/gostore/api"
 import "github.com/prataprc/gostore/bubt"
 
-func testbubt() error {
+func perfbubt() error {
 	path, paths := os.TempDir(), []string{}
 	for i, base := range []string{"1", "2", "3"} {
 		paths = append(paths, filepath.Join(path, base))
@@ -35,7 +32,7 @@ func testbubt() error {
 	}
 
 	klen, vlen := int64(options.keylen), int64(options.keylen)
-	seed, n := int64(options.seed), int64(options.entries)
+	seed, n := int64(options.seed), int64(options.load)
 	iter := makeiterator(klen, vlen, n, delmod)
 	md := generatemeta(seed)
 
@@ -61,10 +58,17 @@ func testbubt() error {
 	}
 
 	var rwg sync.WaitGroup
-	for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
-		go bubtGetter(name, paths, mmap, n, seed, &rwg)
-		go bubtRanger(name, paths, mmap, n, seed, &rwg)
-		rwg.Add(2)
+	if options.gets > 0 {
+		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+			go bubtGetter(name, paths, mmap, n, seed, &rwg)
+			rwg.Add(1)
+		}
+	}
+	if options.iterates > 0 {
+		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+			go bubtRanger(name, paths, mmap, n, seed, &rwg)
+			rwg.Add(1)
+		}
 	}
 	rwg.Wait()
 
@@ -91,40 +95,28 @@ func bubtGetter(
 
 	var ngets, nmisses int64
 	var key []byte
-	var del bool
 	g := Generatereadseq(int64(options.keylen), n, seed)
 
-	rnd := rand.New(rand.NewSource(seed))
 	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
 	value := make([]byte, 16)
 loop:
 	for {
-		runtime.Gosched()
 		ngets++
 		key = g(key, 0)
-		ln := len(bubtgets)
-		value, _, del, _ = bubtgets[rnd.Intn(1000000)%ln](index, key, value)
-		//fmt.Printf("bubtGetter %q %q %v\n", key, value, del)
-		if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x) % 2) != delmod {
-			if del {
-				panic(fmt.Errorf("unexpected deleted"))
-			} else if bytes.Compare(key, value) != 0 {
-				panic(fmt.Errorf("expected %q, got %q", key, value))
-			}
-		} else {
+		_, _, _, ok := bubtgets[0](index, key, value)
+		if !ok {
 			nmisses++
 		}
 
-		if ngm := (ngets + nmisses); ngm%markercount == 0 {
+		ngm := (ngets + nmisses)
+		if ngm%markercount == 0 {
 			x := time.Since(now).Round(time.Second)
 			y := time.Since(epoch).Round(time.Second)
 			fmsg := "bubtGetter {%v items in %v} {%v:%v items in %v}\n"
 			fmt.Printf(fmsg, markercount, x, ngets, nmisses, y)
 		}
 
-		if atomic.AddInt64(&totalreads, 1) > int64(options.ops) {
+		if ngm > int64(options.gets) {
 			break loop
 		}
 	}
@@ -185,13 +177,12 @@ func bubtRanger(
 	epoch, value := time.Now(), make([]byte, 16)
 loop:
 	for {
-		runtime.Gosched()
 		key = g(key, 0)
 		ln := len(bubtrngs)
 		n := bubtrngs[rnd.Intn(1000000)%ln](index, key, value)
 		nranges += n
 
-		if atomic.AddInt64(&totalreads, 1) > int64(options.ops) {
+		if nranges > int64(options.iterates) {
 			break loop
 		}
 	}
