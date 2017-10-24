@@ -57,8 +57,8 @@ func mvccLoad(index *llrb.MVCC, seedl int64) error {
 	klen, vlen := int64(options.keylen), int64(options.vallen)
 	g := Generateloadr(klen, vlen, int64(options.load), int64(seedl))
 
-	key, value := make([]byte, 16), make([]byte, 16)
-	now, oldvalue := time.Now(), make([]byte, 16)
+	key, value := make([]byte, klen), make([]byte, vlen)
+	now, oldvalue := time.Now(), make([]byte, vlen)
 	for key, value = g(key, value); key != nil; key, value = g(key, value) {
 		index.Set(key, value, oldvalue)
 	}
@@ -83,8 +83,8 @@ func mvccWriter(
 	gupdate := Generateupdate(klen, vlen, n, seedl, seedc, -1)
 	gdelete := Generatedelete(klen, vlen, n, seedl, seedc, delmod)
 
-	key, value, oldvalue := make([]byte, 16), make([]byte, 16), make([]byte, 16)
-	rnd := rand.New(rand.NewSource(seedl))
+	key, value := make([]byte, klen), make([]byte, vlen)
+	rnd, oldvalue := rand.New(rand.NewSource(seedl)), make([]byte, vlen)
 	epoch, now, markercount := time.Now(), time.Now(), int64(1000000)
 	insn, upsn, deln := options.inserts, options.upserts, options.deletes
 
@@ -255,7 +255,7 @@ func mvccGetter(
 	g := Generateread(int64(options.keylen), n, seedl, seedc)
 
 	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
-	value := make([]byte, 16)
+	value := make([]byte, options.vallen)
 	for ngets+nmisses < int64(options.gets) {
 		ngets++
 		key = g(key, atomic.LoadInt64(&ninserts))
@@ -332,7 +332,7 @@ func mvccRanger(
 	var key []byte
 	g := Generateread(int64(options.keylen), n, seedl, seedc)
 
-	epoch, value := time.Now(), make([]byte, 16)
+	epoch, value := time.Now(), make([]byte, options.vallen)
 	for nranges < int64(options.iterates) {
 		key = g(key, atomic.LoadInt64(&ninserts))
 		n := mvccrngs[0](index, key, value)

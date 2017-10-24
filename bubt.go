@@ -98,7 +98,7 @@ func bubtGetter(
 	g := Generatereadseq(int64(options.keylen), n, seed)
 
 	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
-	value := make([]byte, 16)
+	value := make([]byte, options.vallen)
 loop:
 	for {
 		ngets++
@@ -174,7 +174,7 @@ func bubtRanger(
 	g := Generatereadseq(int64(options.keylen), n, seed)
 
 	rnd := rand.New(rand.NewSource(seed))
-	epoch, value := time.Now(), make([]byte, 16)
+	epoch, value := time.Now(), make([]byte, options.vallen)
 loop:
 	for {
 		key = g(key, 0)
@@ -246,7 +246,8 @@ func bubtRange2(index *bubt.Snapshot, key, value []byte) (n int64) {
 
 func makeiterator(klen, vlen, entries, mod int64) api.Iterator {
 	g := Generateloads(klen, vlen, entries)
-	key, value, seqno := make([]byte, 16), make([]byte, 16), uint64(0)
+	key, seqno := make([]byte, options.keylen), int64(0)
+	value := make([]byte, options.vallen)
 
 	return func(fin bool) ([]byte, []byte, uint64, bool, error) {
 		key, value = g(key, value)
