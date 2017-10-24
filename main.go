@@ -4,10 +4,9 @@ import "os"
 import "flag"
 import "net/http"
 import _ "net/http/pprof"
+import "runtime/pprof"
 
 import "github.com/prataprc/golog"
-
-// TODO: add Validate for llrb and mvcc.
 
 var options struct {
 	db       string
@@ -47,6 +46,22 @@ func main() {
 	go func() {
 		log.Infof("%v", http.ListenAndServe("localhost:6060", nil))
 	}()
+
+	// cpu profile
+	f1, err := os.Create("dbperf.pprof")
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+	defer f1.Close()
+	pprof.StartCPUProfile(f1)
+	defer pprof.StopCPUProfile()
+	// mem profile
+	f2, err := os.Create("dbperf.mprof")
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+	defer f2.Close()
+	defer pprof.WriteHeapProfile(f2)
 
 	switch options.db {
 	case "lmdb":
