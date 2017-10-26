@@ -78,7 +78,7 @@ func perfbubt() error {
 }
 
 var bubtgets = []func(x *bubt.Snapshot, k, v []byte) ([]byte, uint64, bool, bool){
-	bubtGet1, bubtGet2,
+	bubtGet1, // bubtGet2,
 }
 
 func bubtGetter(
@@ -246,7 +246,7 @@ func bubtRange2(index *bubt.Snapshot, key, value []byte) (n int64) {
 
 func makeiterator(klen, vlen, entries, mod int64) api.Iterator {
 	g := Generateloads(klen, vlen, entries)
-	key, seqno := make([]byte, options.keylen), int64(0)
+	key, seqno := make([]byte, options.keylen), uint64(0)
 	value := make([]byte, options.vallen)
 
 	return func(fin bool) ([]byte, []byte, uint64, bool, error) {

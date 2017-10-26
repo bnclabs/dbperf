@@ -84,7 +84,7 @@ func llrbWriter(
 	gupdate := Generateupdate(klen, vlen, n, seedl, seedc, -1)
 	gdelete := Generatedelete(klen, vlen, n, seedl, seedc, delmod)
 
-	key, value := make([]byte, klen), make([]byte, vlen), make([]byte, vlen)
+	key, value := make([]byte, klen), make([]byte, vlen)
 	rnd, oldvalue := rand.New(rand.NewSource(seedl)), make([]byte, vlen)
 	epoch, now, markercount := time.Now(), time.Now(), int64(1000000)
 	insn, upsn, deln := options.inserts, options.upserts, options.deletes
@@ -166,7 +166,10 @@ func llrbSet3(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
 
 func llrbSet4(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
 	txn := index.BeginTxn(0xC0FFEE)
-	cur := txn.OpenCursor(key)
+	cur, err := txn.OpenCursor(key)
+	if err != nil {
+		panic(err)
+	}
 	oldvalue = cur.Set(key, value, oldvalue)
 	//fmt.Printf("update4 %q %q %q \n", key, value, oldvalue)
 	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
@@ -214,7 +217,10 @@ func llrbDel3(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	var ok bool
 
 	txn := index.BeginTxn(0xC0FFEE)
-	cur := txn.OpenCursor(key)
+	cur, err := txn.OpenCursor(key)
+	if err != nil {
+		panic(err)
+	}
 	oldvalue = cur.Delete(key, oldvalue, lsm)
 	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
 		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
@@ -231,7 +237,10 @@ func llrbDel4(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	var ok bool
 
 	txn := index.BeginTxn(0xC0FFEE)
-	cur := txn.OpenCursor(key)
+	cur, err := txn.OpenCursor(key)
+	if err != nil {
+		panic(err)
+	}
 	curkey, _ := cur.Key()
 	if bytes.Compare(key, curkey) == 0 {
 		cur.Delcursor(lsm)
@@ -292,7 +301,10 @@ func llrbGet2(
 	txn := index.BeginTxn(0xC0FFEE)
 	value, del, ok := txn.Get(key, value)
 	if ok == true {
-		cur := txn.OpenCursor(key)
+		cur, err := txn.OpenCursor(key)
+		if err != nil {
+			panic(err)
+		}
 		if ckey, cdel := cur.Key(); cdel != del {
 			panic(fmt.Errorf("expected %v, got %v", del, cdel))
 		} else if bytes.Compare(ckey, key) != 0 {
@@ -312,7 +324,10 @@ func llrbGet3(
 	view := index.View(0x1235)
 	value, del, ok := view.Get(key, value)
 	if ok == true {
-		cur := view.OpenCursor(key)
+		cur, err := view.OpenCursor(key)
+		if err != nil {
+			panic(err)
+		}
 		if ckey, cdel := cur.Key(); cdel != del {
 			panic(fmt.Errorf("expected %v, got %v", del, cdel))
 		} else if bytes.Compare(ckey, key) != 0 {
@@ -352,7 +367,10 @@ func llrbRanger(
 func llrbRange1(index *llrb.LLRB, key, value []byte) (n int64) {
 	//fmt.Printf("llrbRange1 %q\n", key)
 	txn := index.BeginTxn(0xC0FFEE)
-	cur := txn.OpenCursor(key)
+	cur, err := txn.OpenCursor(key)
+	if err != nil {
+		panic(err)
+	}
 	for i := 0; i < 100; i++ {
 		key, value, del, err := cur.GetNext()
 		if err == io.EOF {
@@ -373,7 +391,10 @@ func llrbRange1(index *llrb.LLRB, key, value []byte) (n int64) {
 
 func llrbRange2(index *llrb.LLRB, key, value []byte) (n int64) {
 	txn := index.BeginTxn(0xC0FFEE)
-	cur := txn.OpenCursor(key)
+	cur, err := txn.OpenCursor(key)
+	if err != nil {
+		panic(err)
+	}
 	for i := 0; i < 100; i++ {
 		key, value, _, del, err := cur.YNext(false /*fin*/)
 		if err == io.EOF {
@@ -396,7 +417,10 @@ func llrbRange2(index *llrb.LLRB, key, value []byte) (n int64) {
 
 func llrbRange3(index *llrb.LLRB, key, value []byte) (n int64) {
 	view := index.View(0x1236)
-	cur := view.OpenCursor(key)
+	cur, err := view.OpenCursor(key)
+	if err != nil {
+		panic(err)
+	}
 	for i := 0; i < 100; i++ {
 		key, value, del, err := cur.GetNext()
 		if err == io.EOF {
@@ -419,7 +443,10 @@ func llrbRange3(index *llrb.LLRB, key, value []byte) (n int64) {
 
 func llrbRange4(index *llrb.LLRB, key, value []byte) (n int64) {
 	view := index.View(0x1237)
-	cur := view.OpenCursor(key)
+	cur, err := view.OpenCursor(key)
+	if err != nil {
+		panic(err)
+	}
 	for i := 0; i < 100; i++ {
 		key, value, _, del, err := cur.YNext(false /*fin*/)
 		if err == io.EOF {
