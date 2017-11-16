@@ -1,4 +1,5 @@
 *.swp
+*.svg
 dbperf
 dbperf.mprof
 dbperf.pprof
