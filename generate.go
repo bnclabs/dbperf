@@ -9,7 +9,7 @@ var _ = fmt.Sprintf("dummy")
 // Generate presorted load, always return unique key,
 // return nil after `n` keys.
 func Generateloads(klen, vlen, n int64) func(k, v []byte) ([]byte, []byte) {
-	var textint [16]byte
+	var textint [1024]byte
 
 	keynum := int64(0)
 	return func(key, value []byte) ([]byte, []byte) {
@@ -36,7 +36,7 @@ func Generateloads(klen, vlen, n int64) func(k, v []byte) ([]byte, []byte) {
 func Generateloadr(
 	klen, vlen, n, seed int64) func(k, v []byte) ([]byte, []byte) {
 
-	var textint [16]byte
+	var textint [1024]byte
 
 	intn := n * rndscale
 	rnd := rand.New(rand.NewSource(seed))
@@ -67,7 +67,7 @@ func Generateloadr(
 func Generatecreate(
 	klen, vlen, loadn, seed int64) func(k, v []byte) ([]byte, []byte) {
 
-	var textint [16]byte
+	var textint [1024]byte
 
 	loadn = int64(loadn * rndscale)
 	intn := int64(9223372036854775807) - loadn
@@ -92,7 +92,7 @@ func Generateupdate(
 	klen, vlen, loadn,
 	seedl, seedc, mod int64) func(k, v []byte) ([]byte, []byte) {
 
-	var textint [16]byte
+	var textint [1024]byte
 	var getkey func()
 
 	loadn1 := loadn * rndscale
@@ -134,7 +134,7 @@ func Generateupdate(
 }
 
 func Generateread(klen, loadn, seedl, seedc int64) func([]byte, int64) []byte {
-	var textint [16]byte
+	var textint [1024]byte
 	var getkey func(int64)
 
 	loadn1 := loadn * rndscale
@@ -169,7 +169,7 @@ func Generateread(klen, loadn, seedl, seedc int64) func([]byte, int64) []byte {
 }
 
 func Generatereadseq(klen, loadn, seedl int64) func([]byte, int64) []byte {
-	var textint [16]byte
+	var textint [1024]byte
 	var getkey func(int64)
 
 	rndl := rand.New(rand.NewSource(seedl))
@@ -194,7 +194,7 @@ func Generatedelete(
 	klen, vlen,
 	loadn, seedl, seedc, mod int64) func(k, v []byte) ([]byte, []byte) {
 
-	var textint [16]byte
+	var textint [1024]byte
 	var getkey func()
 
 	loadn1 := loadn * rndscale

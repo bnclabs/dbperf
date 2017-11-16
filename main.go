@@ -9,22 +9,23 @@ import "runtime/pprof"
 import "github.com/prataprc/golog"
 
 var options struct {
-	db       string
-	load     int
-	inserts  int
-	upserts  int
-	deletes  int
-	gets     int
-	iterates int
-	limit    int
-	keylen   int
-	vallen   int
-	lsm      bool
-	seed     int
+	db      string
+	load    int
+	inserts int
+	upserts int
+	deletes int
+	gets    int
+	ranges  int
+	limit   int
+	keylen  int
+	vallen  int
+	lsm     bool
+	seed    int
 }
 
 func optparse(args []string) {
 	f := flag.NewFlagSet("dbperf", flag.ExitOnError)
+	cpu := runtime.GOMAXPROCS(-1) / 2
 
 	f.StringVar(&options.db, "db", "llrb", "pick db storage to torture test.")
 	f.IntVar(&options.load, "load", 1000000, "items to initially load")
@@ -32,11 +33,12 @@ func optparse(args []string) {
 	f.IntVar(&options.upserts, "upserts", 0, "items to update")
 	f.IntVar(&options.deletes, "deletes", 0, "items to delete")
 	f.IntVar(&options.gets, "gets", 0, "items to get")
-	f.IntVar(&options.iterates, "iterates", 0, "items to iterate")
+	f.IntVar(&options.ranges, "ranges", 0, "items to iterate")
 	f.IntVar(&options.limit, "limit", 100, "limit items per iteration")
 	f.IntVar(&options.keylen, "klen", 32, "size of each key")
 	f.IntVar(&options.vallen, "vlen", 32, "size of each value")
-	f.IntVar(&options.seed, "seed", 10, "seed value to generate randomness")
+	f.IntVar(&options.seed, "seed", 0, "seed value to generate randomness")
+	f.IntVar(&options.cpu, "cpu", cpu, "seed value to generate randomness")
 	f.Parse(args)
 }
 

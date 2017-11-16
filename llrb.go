@@ -5,7 +5,6 @@ import "fmt"
 import "sync"
 import "time"
 import "bytes"
-import "runtime"
 import "strconv"
 import "sync/atomic"
 import "math/rand"
@@ -28,19 +27,18 @@ func perfllrb() error {
 	fin := make(chan struct{})
 
 	if options.inserts+options.upserts+options.deletes > 0 {
-		// writer routines
+		// writer routine
 		go llrbWriter(index, n, seedl, seedc, fin, &wg)
 		wg.Add(1)
 	}
 	if options.gets > 0 {
-		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+		for i := 0; i < options.cpu; i++ {
 			go llrbGetter(index, n, seedl, seedc, fin, &wg)
 			wg.Add(1)
-			break
 		}
 	}
-	if options.iterates > 0 {
-		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+	if options.ranges > 0 {
+		for i := 0; i < options.cpu; i++ {
 			go llrbRanger(index, n, seedl, seedc, fin, &wg)
 			wg.Add(1)
 		}
@@ -49,7 +47,7 @@ func perfllrb() error {
 	close(fin)
 	time.Sleep(1 * time.Second)
 
-	fmt.Printf("LLRB total indexed %v items\n", index.Count())
+	fmt.Printf("LLRB total indexed %v items, footprint %v\n", index.Count())
 
 	return nil
 }
@@ -111,7 +109,7 @@ func llrbWriter(
 			deln--
 		}
 		totalops = insn + upsn + deln
-		if n := x + y + z; n%markercount == 0 {
+		if n := x + y + z; n > 0 && n%markercount == 0 {
 			a := time.Since(now).Round(time.Second)
 			b := time.Since(epoch).Round(time.Second)
 			fmsg := "llrbWriter {%v,%v,%v in %v}, {%v ops %v}\n"
@@ -353,7 +351,7 @@ func llrbRanger(
 	g := Generateread(int64(options.keylen), n, seedl, seedc)
 
 	epoch, value := time.Now(), make([]byte, options.vallen)
-	for nranges < int64(options.iterates) {
+	for nranges < int64(options.ranges) {
 		key = g(key, atomic.LoadInt64(&ninserts))
 		n := llrbrngs[0](index, key, value)
 		nranges += n

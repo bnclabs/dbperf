@@ -6,7 +6,6 @@ import "fmt"
 import "sync"
 import "time"
 import "bytes"
-import "runtime"
 import "strconv"
 import "path/filepath"
 import "math/rand"
@@ -59,13 +58,13 @@ func perfbubt() error {
 
 	var rwg sync.WaitGroup
 	if options.gets > 0 {
-		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+		for i := 0; i < options.cpu; i++ {
 			go bubtGetter(index, n, seed, &rwg)
 			rwg.Add(1)
 		}
 	}
-	if options.iterates > 0 {
-		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+	if options.ranges > 0 {
+		for i := 0; i < options.cpu; i++ {
 			go bubtRanger(index, n, seed, &rwg)
 			rwg.Add(1)
 		}
@@ -165,7 +164,7 @@ loop:
 		n := bubtrngs[rnd.Intn(1000000)%ln](index, key, value)
 		nranges += n
 
-		if nranges > int64(options.iterates) {
+		if nranges > int64(options.ranges) {
 			break loop
 		}
 	}

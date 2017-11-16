@@ -4,26 +4,26 @@ import "os"
 import "fmt"
 import "sync"
 import "time"
-import "runtime"
 import "sync/atomic"
 import "math/rand"
 import "path/filepath"
 
 import "github.com/prataprc/golog"
 import "github.com/bmatsuo/lmdb-go/lmdb"
+import humanize "github.com/dustin/go-humanize"
 
 func perflmdb() error {
 	path := lmdbpath()
 	defer func() {
 		if err := os.RemoveAll(path); err != nil {
-			log.Errorf("%v", err)
+			panic(err)
 		}
 	}()
 	fmt.Printf("LMDB path %q\n", path)
 
 	env, dbi, err := initlmdb(path, lmdb.NoSync|lmdb.NoMetaSync)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	defer env.Close()
 
@@ -38,22 +38,31 @@ func perflmdb() error {
 	fin := make(chan struct{})
 
 	if options.inserts+options.upserts+options.deletes > 0 {
-		// writer routines
+		// writer routine
 		go lmdbWriter(env, dbi, n, seedc, fin, &wg)
 		wg.Add(1)
 	}
-	if options.gets+options.iterates > 0 {
-		// reader routines
-		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+	if options.gets > 0 {
+		for i := 0; i < options.cpu; i++ {
 			go lmdbGetter(path, n, seedl, seedc, fin, &wg)
+			wg.Add(1)
+		}
+	}
+	if options.ranges > 0 {
+		for i := 0; i < options.cpu; i++ {
 			go lmdbRanger(path, n, seedl, seedc, fin, &wg)
-			wg.Add(2)
+			wg.Add(1)
 		}
 	}
 	wg.Wait()
 	close(fin)
 
-	fmt.Printf("LMDB total indexed %v items\n", getlmdbCount(env, dbi))
+	dirsize, err := DirSize(path)
+	if err != nil {
+		panic(err)
+	}
+	fmsg := "LMDB total indexed %v items, footprint %v\n"
+	fmt.Printf(fmsg, getlmdbCount(env, dbi), humanize.Bytes(uint64(dirsize)))
 
 	return nil
 }
@@ -255,10 +264,10 @@ func lmdbWriter(
 			deln--
 		}
 		totalops = insn + upsn + deln
-		if count%markercount == 0 {
+		if count > 0 && count%markercount == 0 {
 			a := time.Since(now).Round(time.Second)
 			b := time.Since(epoch).Round(time.Second)
-			fmsg := "lmdbWriter {%v,%v,%v in %v}, {%v ops %v}\n"
+			fmsg := "lmdbWriter {ins:%v,ups:%v,dels:%v in %v}, {%v ops %v}\n"
 			fmt.Printf(fmsg, x, y, z, b, markercount, a)
 			now = time.Now()
 		}
@@ -278,6 +287,17 @@ func lmdbGetter(
 	path string, loadn, seedl, seedc int64,
 	fin chan struct{}, wg *sync.WaitGroup) {
 
+	var ngets, nmisses int64
+
+	epoch := time.Now()
+	defer func() {
+		duration := time.Since(epoch)
+		wg.Done()
+		<-fin
+		fmsg := "at exit, lmdbGetter %v:%v items in %v\n"
+		fmt.Printf(fmsg, ngets, nmisses, duration)
+	}()
+
 	env, dbi, err := readlmdb(path, 0)
 	if err != nil {
 		return
@@ -286,7 +306,6 @@ func lmdbGetter(
 
 	time.Sleep(time.Duration(rand.Intn(100)+300) * time.Millisecond)
 
-	var ngets, nmisses int64
 	var key []byte
 	g := Generateread(int64(options.keylen), loadn, seedl, seedc)
 
@@ -299,7 +318,7 @@ func lmdbGetter(
 		return nil
 	}
 
-	epoch, now, markercount := time.Now(), time.Now(), int64(1000000)
+	now, markercount := time.Now(), int64(1000000)
 	for ngets+nmisses < int64(options.gets) {
 		key = g(key, atomic.LoadInt64(&ninserts))
 		env.View(get)
@@ -311,16 +330,22 @@ func lmdbGetter(
 			now = time.Now()
 		}
 	}
-	duration := time.Since(epoch)
-	wg.Done()
-	<-fin
-	fmsg := "at exit, lmdbGetter %v:%v items in %v\n"
-	fmt.Printf(fmsg, ngets, nmisses, duration)
 }
 
 func lmdbRanger(
 	path string, loadn, seedl, seedc int64,
 	fin chan struct{}, wg *sync.WaitGroup) {
+
+	var nranges, nmisses int64
+
+	epoch := time.Now()
+	defer func() {
+		duration := time.Since(epoch)
+		wg.Done()
+		<-fin
+		fmsg := "at exit, lmdbRanger %v:%v items in %v\n"
+		fmt.Printf(fmsg, nranges, nmisses, duration)
+	}()
 
 	env, dbi, err := readlmdb(path, 0)
 	if err != nil {
@@ -330,7 +355,6 @@ func lmdbRanger(
 
 	time.Sleep(time.Duration(rand.Intn(100)+300) * time.Millisecond)
 
-	var nranges, nmisses int64
 	var key []byte
 	g := Generateread(int64(options.keylen), loadn, seedl, seedc)
 
@@ -354,8 +378,8 @@ func lmdbRanger(
 		return nil
 	}
 
-	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
-	for nranges+nmisses < int64(options.iterates) {
+	now, markercount := time.Now(), int64(10000000)
+	for nranges+nmisses < int64(options.ranges) {
 		key = g(key, atomic.LoadInt64(&ninserts))
 		env.View(ranger)
 		if (nranges+nmisses)%markercount == 0 {
@@ -366,17 +390,13 @@ func lmdbRanger(
 			now = time.Now()
 		}
 	}
-	duration := time.Since(epoch)
-	wg.Done()
-	<-fin
-	fmsg := "at exit, lmdbRanger %v:%v items in %v\n"
-	fmt.Printf(fmsg, nranges, nmisses, duration)
 }
 
 func lmdbpath() string {
 	path := filepath.Join(os.TempDir(), "lmdb.data")
-	os.RemoveAll(path)
-	if err := os.MkdirAll(path, 0775); err != nil {
+	if err := os.RemoveAll(path); err != nil {
+		panic(err)
+	} else if err := os.MkdirAll(path, 0775); err != nil {
 		panic(err)
 	}
 	return path

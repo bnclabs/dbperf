@@ -5,7 +5,6 @@ import "fmt"
 import "sync"
 import "time"
 import "bytes"
-import "runtime"
 import "strconv"
 import "sync/atomic"
 import "math/rand"
@@ -33,13 +32,13 @@ func perfmvcc() error {
 		wg.Add(1)
 	}
 	if options.gets > 0 {
-		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+		for i := 0; i < options.cpu; i++ {
 			go mvccGetter(index, n, seedl, seedc, fin, &wg)
 			wg.Add(1)
 		}
 	}
-	if options.iterates > 0 {
-		for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
+	if options.ranges > 0 {
+		for i := 0; i < options.cpu; i++ {
 			go mvccRanger(index, n, seedl, seedc, fin, &wg)
 			wg.Add(1)
 		}
@@ -348,7 +347,7 @@ func mvccRanger(
 	g := Generateread(int64(options.keylen), n, seedl, seedc)
 
 	epoch, value := time.Now(), make([]byte, options.vallen)
-	for nranges < int64(options.iterates) {
+	for nranges < int64(options.ranges) {
 		key = g(key, atomic.LoadInt64(&ninserts))
 		n := mvccrngs[0](index, key, value)
 		nranges += n
