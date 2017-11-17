@@ -71,7 +71,8 @@ func perfbubt() error {
 	}
 	rwg.Wait()
 
-	fmt.Printf("BUBT total indexed %v items\n", index.Count())
+	fmsg = "BUBT total indexed %v items, footprint %v\n"
+	fmt.Printf(fmsg, index.Count(), index.Footprint())
 
 	return nil
 }

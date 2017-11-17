@@ -10,6 +10,7 @@ import "sync/atomic"
 import "math/rand"
 
 import "github.com/prataprc/gostore/llrb"
+import humanize "github.com/dustin/go-humanize"
 
 func perfmvcc() error {
 	setts := llrb.Defaultsettings()
@@ -47,7 +48,8 @@ func perfmvcc() error {
 	close(fin)
 	time.Sleep(1 * time.Second)
 
-	fmt.Printf("MVCC total indexed %v items\n", index.Count())
+	fmsg := "MVCC total indexed %v items, footprint %v\n"
+	fmt.Printf(fmsg, index.Count(), humanize.Bytes(uint64(index.Footprint())))
 
 	return nil
 }
@@ -96,12 +98,12 @@ func mvccWriter(
 			atomic.AddInt64(&numentries, 1)
 			x = atomic.AddInt64(&ninserts, 1)
 			insn--
-		case idx < upsn:
+		case idx < (insn + upsn):
 			key, value = gupdate(key, value)
 			mvccsets[0](index, key, value, oldvalue)
 			y = atomic.AddInt64(&nupserts, 1)
 			upsn--
-		case idx < deln:
+		case idx < (insn + upsn + deln):
 			key, value = gdelete(key, value)
 			mvccdels[0](index, key, value, false /*lsm*/)
 			atomic.AddInt64(&numentries, -1)

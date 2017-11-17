@@ -2,9 +2,11 @@ package main
 
 import "os"
 import "flag"
+import "time"
+import "runtime"
 import "net/http"
-import _ "net/http/pprof"
 import "runtime/pprof"
+import _ "net/http/pprof"
 
 import "github.com/prataprc/golog"
 
@@ -21,6 +23,7 @@ var options struct {
 	vallen  int
 	lsm     bool
 	seed    int
+	cpu     int
 }
 
 func optparse(args []string) {
@@ -40,6 +43,10 @@ func optparse(args []string) {
 	f.IntVar(&options.seed, "seed", 0, "seed value to generate randomness")
 	f.IntVar(&options.cpu, "cpu", cpu, "seed value to generate randomness")
 	f.Parse(args)
+
+	if options.seed == 0 {
+		options.seed = int(time.Now().UnixNano())
+	}
 }
 
 func main() {

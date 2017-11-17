@@ -21,10 +21,11 @@ func Generateloads(klen, vlen, n int64) func(k, v []byte) ([]byte, []byte) {
 		key = Fixbuffer(key, int64(klen))
 		copy(key, zeros)
 		copy(key[klen-int64(len(ascii)):klen], ascii)
-		// create value
-		value = Fixbuffer(value, int64(vlen))
-		copy(value, zeros)
-		copy(value[vlen-int64(len(ascii)):vlen], ascii)
+		if value != nil { // create value
+			value = Fixbuffer(value, int64(vlen))
+			copy(value, zeros)
+			copy(value[vlen-int64(len(ascii)):vlen], ascii)
+		}
 
 		keynum++
 		return key, value
@@ -53,10 +54,11 @@ func Generateloadr(
 		key = Fixbuffer(key, int64(klen))
 		copy(key, zeros)
 		copy(key[klen-int64(len(ascii)):klen], ascii)
-		// create value
-		value = Fixbuffer(value, int64(vlen))
-		copy(value, zeros)
-		copy(value[vlen-int64(len(ascii)):vlen], ascii)
+		if value != nil { // create value
+			value = Fixbuffer(value, int64(vlen))
+			copy(value, zeros)
+			copy(value[vlen-int64(len(ascii)):vlen], ascii)
+		}
 
 		count++
 		return key, value
@@ -80,10 +82,11 @@ func Generatecreate(
 		key = Fixbuffer(key, int64(klen))
 		copy(key, zeros)
 		copy(key[klen-int64(len(ascii)):klen], ascii)
-		// create value
-		value = Fixbuffer(value, int64(vlen))
-		copy(value, zeros)
-		copy(value[vlen-int64(len(ascii)):vlen], ascii)
+		if value != nil { // create value
+			value = Fixbuffer(value, int64(vlen))
+			copy(value, zeros)
+			copy(value[vlen-int64(len(ascii)):vlen], ascii)
+		}
 		return key, value
 	}
 }
@@ -125,10 +128,11 @@ func Generateupdate(
 		key = Fixbuffer(key, int64(klen))
 		copy(key, zeros)
 		copy(key[klen-int64(len(ascii)):klen], ascii)
-		// create value
-		value = Fixbuffer(value, int64(vlen))
-		copy(value, zeros)
-		copy(value[vlen-int64(len(ascii)):vlen], ascii)
+		if value != nil { // create value
+			value = Fixbuffer(value, int64(vlen))
+			copy(value, zeros)
+			copy(value[vlen-int64(len(ascii)):vlen], ascii)
+		}
 		return key, value
 	}
 }
@@ -227,10 +231,11 @@ func Generatedelete(
 		key = Fixbuffer(key, int64(klen))
 		copy(key, zeros)
 		copy(key[klen-int64(len(ascii)):klen], ascii)
-		// create value
-		value = Fixbuffer(value, int64(vlen))
-		copy(value, zeros)
-		copy(value[vlen-int64(len(ascii)):vlen], ascii)
+		if value != nil { // create value
+			value = Fixbuffer(value, int64(vlen))
+			copy(value, zeros)
+			copy(value[vlen-int64(len(ascii)):vlen], ascii)
+		}
 		return key, value
 	}
 }
