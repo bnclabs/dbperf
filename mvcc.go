@@ -48,6 +48,9 @@ func perfmvcc() error {
 	close(fin)
 	time.Sleep(1 * time.Second)
 
+	index.Log()
+	index.Validate()
+
 	fmsg := "MVCC total indexed %v items, footprint %v\n"
 	fmt.Printf(fmsg, index.Count(), humanize.Bytes(uint64(index.Footprint())))
 
@@ -58,8 +61,11 @@ func mvccLoad(index *llrb.MVCC, seedl int64) error {
 	klen, vlen := int64(options.keylen), int64(options.vallen)
 	g := Generateloadr(klen, vlen, int64(options.load), int64(seedl))
 
-	key, value := make([]byte, klen), make([]byte, vlen)
-	now, oldvalue := time.Now(), make([]byte, vlen)
+	value, oldvalue := make([]byte, vlen), make([]byte, vlen)
+	if options.vallen <= 0 {
+		value, oldvalue = nil, nil
+	}
+	key, now := make([]byte, klen), time.Now()
 	for key, value = g(key, value); key != nil; key, value = g(key, value) {
 		index.Set(key, value, oldvalue)
 	}
@@ -84,8 +90,11 @@ func mvccWriter(
 	gupdate := Generateupdate(klen, vlen, n, seedl, seedc, -1)
 	gdelete := Generatedelete(klen, vlen, n, seedl, seedc, delmod)
 
-	key, value := make([]byte, klen), make([]byte, vlen)
-	rnd, oldvalue := rand.New(rand.NewSource(seedl)), make([]byte, vlen)
+	value, oldvalue := make([]byte, vlen), make([]byte, vlen)
+	if options.vallen <= 0 {
+		value, oldvalue = nil, nil
+	}
+	key, rnd := make([]byte, klen), rand.New(rand.NewSource(seedl))
 	epoch, now, markercount := time.Now(), time.Now(), int64(1000000)
 	insn, upsn, deln := options.inserts, options.upserts, options.deletes
 
@@ -264,8 +273,11 @@ func mvccGetter(
 	var key []byte
 	g := Generateread(int64(options.keylen), n, seedl, seedc)
 
-	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
 	value := make([]byte, options.vallen)
+	if options.vallen <= 0 {
+		value = nil
+	}
+	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
 	for ngets+nmisses < int64(options.gets) {
 		ngets++
 		key = g(key, atomic.LoadInt64(&ninserts))
@@ -348,7 +360,11 @@ func mvccRanger(
 	var key []byte
 	g := Generateread(int64(options.keylen), n, seedl, seedc)
 
-	epoch, value := time.Now(), make([]byte, options.vallen)
+	value := make([]byte, options.vallen)
+	if options.vallen <= 0 {
+		value = nil
+	}
+	epoch := time.Now()
 	for nranges < int64(options.ranges) {
 		key = g(key, atomic.LoadInt64(&ninserts))
 		n := mvccrngs[0](index, key, value)

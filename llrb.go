@@ -49,6 +49,7 @@ func perfllrb() error {
 	time.Sleep(1 * time.Second)
 
 	index.Log()
+	index.Validate()
 
 	fmsg := "LLRB total indexed %v items, footprint %v\n"
 	fmt.Printf(fmsg, index.Count(), humanize.Bytes(uint64(index.Footprint())))
