@@ -77,7 +77,7 @@ func mvccLoad(index *llrb.MVCC, seedl int64) error {
 }
 
 var mvccsets = []func(index *llrb.MVCC, key, val, oldval []byte) uint64{
-	mvccSet1, mvccSet2, mvccSet3, mvccSet4,
+	mvccSet1, // mvccSet2, mvccSet3, mvccSet4,
 }
 
 func mvccWriter(
@@ -114,7 +114,7 @@ func mvccWriter(
 			upsn--
 		case idx < (insn + upsn + deln):
 			key, value = gdelete(key, value)
-			mvccdels[0](index, key, value, false /*lsm*/)
+			mvccdels[0](index, key, value, options.lsm /*lsm*/)
 			atomic.AddInt64(&numentries, -1)
 			z = atomic.AddInt64(&ndeletes, 1)
 			deln--
@@ -289,6 +289,7 @@ func mvccGetter(
 			y := time.Since(epoch).Round(time.Second)
 			fmsg := "mvccGetter {%v items in %v} {%v:%v items in %v}\n"
 			fmt.Printf(fmsg, markercount, x, ngets, nmisses, y)
+			now = time.Now()
 		}
 	}
 	duration := time.Since(epoch)

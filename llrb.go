@@ -289,6 +289,7 @@ func llrbGetter(
 			y := time.Since(epoch).Round(time.Second)
 			fmsg := "llrbGetter {%v items in %v} {%v:%v items in %v}\n"
 			fmt.Printf(fmsg, markercount, x, ngets, nmisses, y)
+			now = time.Now()
 		}
 	}
 	duration := time.Since(epoch)

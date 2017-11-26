@@ -106,6 +106,7 @@ loop:
 			y := time.Since(epoch).Round(time.Second)
 			fmsg := "bubtGetter {%v items in %v} {%v:%v items in %v}\n"
 			fmt.Printf(fmsg, markercount, x, ngets, nmisses, y)
+			now = time.Now()
 		}
 
 		if ngm > int64(options.gets) {

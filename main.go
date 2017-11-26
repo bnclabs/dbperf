@@ -40,6 +40,7 @@ func optparse(args []string) {
 	f.IntVar(&options.limit, "limit", 100, "limit items per iteration")
 	f.IntVar(&options.keylen, "klen", 32, "size of each key")
 	f.IntVar(&options.vallen, "vlen", 32, "size of each value")
+	f.BoolVar(&options.lsm, "lsm", false, "delete in lsm mode.")
 	f.IntVar(&options.seed, "seed", 0, "seed value to generate randomness")
 	f.IntVar(&options.cpu, "cpu", cpu, "seed value to generate randomness")
 	f.Parse(args)
