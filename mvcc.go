@@ -77,7 +77,7 @@ func mvccLoad(index *llrb.MVCC, seedl int64) error {
 }
 
 var mvccsets = []func(index *llrb.MVCC, key, val, oldval []byte) uint64{
-	mvccSet1, // mvccSet2, mvccSet3, mvccSet4,
+	mvccSet1, mvccSet2, mvccSet3, mvccSet4,
 }
 
 func mvccWriter(
