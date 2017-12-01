@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 
-LOAD=-load 100000
-READS=-gets 100000000 -ranges 10000000
+LOAD="-load 100000"
+READS="-gets 100000000 -ranges 10000000"
 
 go build
 

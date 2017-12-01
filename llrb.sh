@@ -7,6 +7,6 @@ READS="-gets 10000000 -ranges 100000000"
 go build
 
 echo "./dbperf -db llrb -klen 32 -vlen 32 $LOAD $WRITES $READS"
-./dbperf -db llrb -klen 32 -vlen 32 $LOAD # $WRITES $READS
+./dbperf -db llrb -klen 32 -vlen 32 $LOAD $WRITES $READS
 go tool pprof -svg dbperf dbperf.pprof  > pprof.svg
 go tool pprof -alloc_space -svg dbperf dbperf.mprof  > alloc_space.svg

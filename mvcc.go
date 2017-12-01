@@ -309,7 +309,7 @@ func mvccGet2(
 	index *llrb.MVCC, key, value []byte) ([]byte, uint64, bool, bool) {
 
 	txn := index.BeginTxn(0xC0FFEE)
-	value, del, ok := txn.Get(key, value)
+	value, _, del, ok := txn.Get(key, value)
 	if ok == true {
 		cur, err := txn.OpenCursor(key)
 		if err != nil {
@@ -331,7 +331,7 @@ func mvccGet3(
 	index *llrb.MVCC, key, value []byte) ([]byte, uint64, bool, bool) {
 
 	view := index.View(0x1235)
-	value, del, ok := view.Get(key, value)
+	value, _, del, ok := view.Get(key, value)
 	if ok == true {
 		cur, err := view.OpenCursor(key)
 		if err != nil {
