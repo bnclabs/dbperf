@@ -14,7 +14,7 @@ import humanize "github.com/dustin/go-humanize"
 
 func perfllrb() error {
 	setts := llrb.Defaultsettings()
-	index := llrb.NewLLRB("dbtest", setts)
+	index := llrb.NewLLRB("dbperf", setts)
 	defer index.Destroy()
 
 	seedl, seedc := int64(options.seed), int64(options.seed)+100

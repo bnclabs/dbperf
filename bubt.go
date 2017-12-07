@@ -20,7 +20,7 @@ func perfbubt() error {
 		fmt.Printf("Path %v %q\n", i, filepath.Join(path, base))
 	}
 
-	name := "dbtest"
+	name := "dbperf"
 	rnd := rand.New(rand.NewSource(int64(options.seed)))
 	msize := int64(4096 * (rnd.Intn(5) + 1))
 	zsize := int64(4096 * (rnd.Intn(5) + 1))

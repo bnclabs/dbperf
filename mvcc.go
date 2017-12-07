@@ -14,7 +14,7 @@ import humanize "github.com/dustin/go-humanize"
 
 func perfmvcc() error {
 	setts := llrb.Defaultsettings()
-	index := llrb.NewMVCC("dbtest", setts)
+	index := llrb.NewMVCC("dbperf", setts)
 	defer index.Destroy()
 
 	seedl, seedc := int64(options.seed), int64(options.seed)+100
