@@ -77,8 +77,13 @@ func perfbubt() error {
 	return nil
 }
 
-var bubtgets = []func(x *bubt.Snapshot, k, v []byte) ([]byte, uint64, bool, bool){
-	bubtGet1, bubtGet2,
+type bubtgetfn = func(
+	*bubt.Snapshot, []byte, []byte) ([]byte, uint64, bool, bool)
+
+var bubtgets = map[string][]bubtgetfn{
+	"get":  []bubtgetfn{bubtGet1},
+	"view": []bubtgetfn{bubtGet2},
+	"all":  []bubtgetfn{bubtGet1, bubtGet2},
 }
 
 func bubtGetter(index *bubt.Snapshot, n, seed int64, wg *sync.WaitGroup) {
@@ -91,11 +96,16 @@ func bubtGetter(index *bubt.Snapshot, n, seed int64, wg *sync.WaitGroup) {
 
 	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
 	value := make([]byte, options.vallen)
+	rnd := rand.New(rand.NewSource(seed))
+
+	cs := bubtgets[options.getas]
+	bubtget := cs[rnd.Intn(len(cs))]
+
 loop:
 	for {
 		ngets++
 		key = g(key, 0)
-		_, _, _, ok := bubtgets[0](index, key, value)
+		_, _, _, ok := bubtget(index, key, value)
 		if !ok {
 			nmisses++
 		}
@@ -146,8 +156,12 @@ func bubtGet2(
 	return value, 0, del, ok
 }
 
-var bubtrngs = []func(index *bubt.Snapshot, key, val []byte) int64{
-	bubtRange1, bubtRange2,
+type bubtrngfn = func(*bubt.Snapshot, []byte, []byte) int64
+
+var bubtrngs = map[string][]bubtrngfn{
+	"vgn": []bubtrngfn{bubtRange1},
+	"vyn": []bubtrngfn{bubtRange2},
+	"all": []bubtrngfn{bubtRange1, bubtRange2},
 }
 
 func bubtRanger(index *bubt.Snapshot, n, seed int64, wg *sync.WaitGroup) {
@@ -159,11 +173,14 @@ func bubtRanger(index *bubt.Snapshot, n, seed int64, wg *sync.WaitGroup) {
 
 	rnd := rand.New(rand.NewSource(seed))
 	epoch, value := time.Now(), make([]byte, options.vallen)
+
+	ds := bubtrngs[options.rngas]
+	bubtrng := ds[rnd.Intn(len(ds))]
+
 loop:
 	for {
 		key = g(key, 0)
-		ln := len(bubtrngs)
-		n := bubtrngs[rnd.Intn(1000000)%ln](index, key, value)
+		n := bubtrng(index, key, value)
 		nranges += n
 
 		if nranges > int64(options.ranges) {

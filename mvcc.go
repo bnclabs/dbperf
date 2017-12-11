@@ -10,6 +10,7 @@ import "sync/atomic"
 import "math/rand"
 
 import "github.com/prataprc/gostore/llrb"
+import "github.com/prataprc/gostore/api"
 import humanize "github.com/dustin/go-humanize"
 
 func perfmvcc() error {
@@ -51,6 +52,7 @@ func perfmvcc() error {
 	index.Log()
 	index.Validate()
 
+	fmt.Printf("Number of ROLLBACKS: %v\n", rollbacks)
 	fmsg := "MVCC total indexed %v items, footprint %v\n"
 	fmt.Printf(fmsg, index.Count(), humanize.Bytes(uint64(index.Footprint())))
 
@@ -67,6 +69,7 @@ func mvccLoad(index *llrb.MVCC, seedl int64) error {
 	}
 	key, now := make([]byte, klen), time.Now()
 	for key, value = g(key, value); key != nil; key, value = g(key, value) {
+		//fmt.Printf("load %s %s\n", key, value)
 		index.Set(key, value, oldvalue)
 	}
 	atomic.AddInt64(&numentries, int64(options.load))
@@ -76,8 +79,14 @@ func mvccLoad(index *llrb.MVCC, seedl int64) error {
 	return nil
 }
 
-var mvccsets = []func(index *llrb.MVCC, key, val, oldval []byte) uint64{
-	mvccSet1, mvccSet2, mvccSet3, mvccSet4,
+type mvccsetfn = func(*llrb.MVCC, []byte, []byte, []byte) uint64
+
+var mvccsets = map[string][]mvccsetfn{
+	"set": []mvccsetfn{mvccSet1},
+	"cas": []mvccsetfn{mvccSet2},
+	"txn": []mvccsetfn{mvccSet3},
+	"cur": []mvccsetfn{mvccSet4},
+	"all": []mvccsetfn{mvccSet1, mvccSet2, mvccSet3, mvccSet4},
 }
 
 func mvccWriter(
@@ -98,23 +107,30 @@ func mvccWriter(
 	epoch, now, markercount := time.Now(), time.Now(), int64(1000000)
 	insn, upsn, deln := options.inserts, options.upserts, options.deletes
 
+	as, bs := mvccsets[options.setas], mvccdels[options.delas]
 	for totalops := insn + upsn + deln; totalops > 0; {
+		mvccset := as[rnd.Intn(len(as))]
+		mvccdel := bs[rnd.Intn(len(bs))]
+
 		idx := rnd.Intn(totalops)
 		switch {
 		case idx < insn:
 			key, value = gcreate(key, value)
-			mvccsets[0](index, key, value, oldvalue)
+			//fmt.Printf("create %s %s\n", key, value)
+			mvccset(index, key, value, oldvalue)
 			atomic.AddInt64(&numentries, 1)
 			x = atomic.AddInt64(&ninserts, 1)
 			insn--
 		case idx < (insn + upsn):
 			key, value = gupdate(key, value)
-			mvccsets[0](index, key, value, oldvalue)
+			//fmt.Printf("update %s %s\n", key, value)
+			mvccset(index, key, value, oldvalue)
 			y = atomic.AddInt64(&nupserts, 1)
 			upsn--
 		case idx < (insn + upsn + deln):
 			key, value = gdelete(key, value)
-			mvccdels[0](index, key, value, options.lsm /*lsm*/)
+			//fmt.Printf("delete %s %s\n", key, value)
+			mvccdel(index, key, value, options.lsm /*lsm*/)
 			atomic.AddInt64(&numentries, -1)
 			z = atomic.AddInt64(&ndeletes, 1)
 			deln--
@@ -132,7 +148,7 @@ func mvccWriter(
 	wg.Done()
 	<-fin
 	n = x + y + z
-	fmsg := "at exit lmdbWriter {%v,%v,%v (%v) in %v}\n"
+	fmsg := "at exit mvccWriter {%v,%v,%v (%v) in %v}\n"
 	fmt.Printf(fmsg, x, y, z, n, duration)
 }
 
@@ -146,18 +162,18 @@ func mvccSet1(index *llrb.MVCC, key, value, oldvalue []byte) uint64 {
 }
 
 func mvccSet2(index *llrb.MVCC, key, value, oldvalue []byte) uint64 {
-	for i := 2; i >= 0; i-- {
-		oldvalue, oldcas, deleted, ok := index.Get(key, oldvalue)
-		if deleted || ok == false {
-			oldcas = 0
-		} else if oldcas == 0 {
-			panic(fmt.Errorf("unexpected %v", oldcas))
-		} else if bytes.Compare(key, oldvalue) != 0 {
-			panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
-		}
-		oldvalue, _, _ = index.SetCAS(key, value, oldvalue, oldcas)
+	var cas uint64
+
+	oldvalue, oldcas, deleted, ok := index.Get(key, oldvalue)
+	if deleted || ok == false {
+		oldcas = 0
+	} else if oldcas == 0 {
+		panic(fmt.Errorf("unexpected %v", oldcas))
+	} else if bytes.Compare(key, oldvalue) != 0 {
+		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
 	}
-	panic("unreachable code")
+	oldvalue, cas, _ = index.SetCAS(key, value, oldvalue, oldcas)
+	return cas
 }
 
 func mvccSet3(index *llrb.MVCC, key, value, oldvalue []byte) uint64 {
@@ -167,8 +183,9 @@ func mvccSet3(index *llrb.MVCC, key, value, oldvalue []byte) uint64 {
 	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
 		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
 	}
-	if err := txn.Commit(); err != nil {
-		panic(err)
+	err := txn.Commit()
+	if err != nil && err.Error() == api.ErrorRollback.Error() {
+		atomic.AddInt64(&rollbacks, 1)
 	}
 	return 0
 }
@@ -184,14 +201,21 @@ func mvccSet4(index *llrb.MVCC, key, value, oldvalue []byte) uint64 {
 	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
 		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
 	}
-	if err := txn.Commit(); err != nil {
-		panic(err)
+	err = txn.Commit()
+	if err != nil && err.Error() == api.ErrorRollback.Error() {
+		atomic.AddInt64(&rollbacks, 1)
 	}
 	return 0
 }
 
-var mvccdels = []func(*llrb.MVCC, []byte, []byte, bool) (uint64, bool){
-	mvccDel1, mvccDel2, mvccDel3, mvccDel4,
+type mvccdelfn = func(*llrb.MVCC, []byte, []byte, bool) (uint64, bool)
+
+var mvccdels = map[string][]mvccdelfn{
+	"del":    []mvccdelfn{mvccDel1},
+	"txn":    []mvccdelfn{mvccDel2},
+	"cur":    []mvccdelfn{mvccDel3},
+	"delcur": []mvccdelfn{mvccDel4},
+	"all":    []mvccdelfn{mvccDel1, mvccDel2, mvccDel3, mvccDel4},
 }
 
 func mvccDel1(index *llrb.MVCC, key, oldvalue []byte, lsm bool) (uint64, bool) {
@@ -216,8 +240,9 @@ func mvccDel2(index *llrb.MVCC, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	} else if len(oldvalue) > 0 {
 		ok = true
 	}
-	if err := txn.Commit(); err != nil {
-		panic(err)
+	err := txn.Commit()
+	if err != nil && err.Error() == api.ErrorRollback.Error() {
+		atomic.AddInt64(&rollbacks, 1)
 	}
 	return 0, ok
 }
@@ -236,8 +261,9 @@ func mvccDel3(index *llrb.MVCC, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	} else if len(oldvalue) > 0 {
 		ok = true
 	}
-	if err := txn.Commit(); err != nil {
-		panic(err)
+	err = txn.Commit()
+	if err != nil && err.Error() == api.ErrorRollback.Error() {
+		atomic.AddInt64(&rollbacks, 1)
 	}
 	return 0, ok
 }
@@ -255,14 +281,20 @@ func mvccDel4(index *llrb.MVCC, key, oldvalue []byte, lsm bool) (uint64, bool) {
 		cur.Delcursor(lsm)
 		ok = true
 	}
-	if err := txn.Commit(); err != nil {
-		panic(err)
+	err = txn.Commit()
+	if err != nil && err.Error() == api.ErrorRollback.Error() {
+		atomic.AddInt64(&rollbacks, 1)
 	}
 	return 0, ok
 }
 
-var mvccgets = []func(x *llrb.MVCC, k, v []byte) ([]byte, uint64, bool, bool){
-	mvccGet1, mvccGet2, mvccGet3,
+type mvccgetfn = func(*llrb.MVCC, []byte, []byte) ([]byte, uint64, bool, bool)
+
+var mvccgets = map[string][]mvccgetfn{
+	"get":  []mvccgetfn{mvccGet1},
+	"txn":  []mvccgetfn{mvccGet2},
+	"view": []mvccgetfn{mvccGet3},
+	"all":  []mvccgetfn{mvccGet1, mvccGet2, mvccGet3},
 }
 
 func mvccGetter(
@@ -273,15 +305,20 @@ func mvccGetter(
 	var key []byte
 	g := Generateread(int64(options.keylen), n, seedl, seedc)
 
+	rnd := rand.New(rand.NewSource(int64(seedl)))
 	value := make([]byte, options.vallen)
 	if options.vallen <= 0 {
 		value = nil
 	}
+
+	cs := mvccgets[options.getas]
 	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
 	for ngets+nmisses < int64(options.gets) {
+		mvccget := cs[rnd.Intn(len(cs))]
+
 		ngets++
 		key = g(key, atomic.LoadInt64(&ninserts))
-		if _, _, _, ok := mvccgets[0](index, key, value); ok == false {
+		if _, _, _, ok := mvccget(index, key, value); ok == false {
 			nmisses++
 		}
 		if ngm := ngets + nmisses; ngm%markercount == 0 {
@@ -349,8 +386,14 @@ func mvccGet3(
 	return value, 0, del, ok
 }
 
-var mvccrngs = []func(index *llrb.MVCC, key, val []byte) int64{
-	mvccRange1, mvccRange2, mvccRange3, mvccRange4,
+type mvccrngfn = func(*llrb.MVCC, []byte, []byte) int64
+
+var mvccrngs = map[string][]mvccrngfn{
+	"tgn": []mvccrngfn{mvccRange1},
+	"tyn": []mvccrngfn{mvccRange2},
+	"vgn": []mvccrngfn{mvccRange3},
+	"vyn": []mvccrngfn{mvccRange4},
+	"all": []mvccrngfn{mvccRange1, mvccRange2, mvccRange3, mvccRange4},
 }
 
 func mvccRanger(
@@ -361,14 +404,18 @@ func mvccRanger(
 	var key []byte
 	g := Generateread(int64(options.keylen), n, seedl, seedc)
 
+	rnd := rand.New(rand.NewSource(int64(seedl)))
 	value := make([]byte, options.vallen)
 	if options.vallen <= 0 {
 		value = nil
 	}
-	epoch := time.Now()
+
+	ds, epoch := mvccrngs[options.rngas], time.Now()
 	for nranges < int64(options.ranges) {
+		mvccrng := ds[rnd.Intn(len(ds))]
+
 		key = g(key, atomic.LoadInt64(&ninserts))
-		n := mvccrngs[0](index, key, value)
+		n := mvccrng(index, key, value)
 		nranges += n
 	}
 	duration := time.Since(epoch)

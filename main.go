@@ -27,6 +27,10 @@ var options struct {
 	vallen   int
 	lsm      bool
 	seed     int
+	setas    string
+	delas    string
+	getas    string
+	rngas    string
 }
 
 func optparse(args []string) {
@@ -34,7 +38,7 @@ func optparse(args []string) {
 	cpu := runtime.GOMAXPROCS(-1) / 2
 
 	f.StringVar(&options.db, "db", "llrb", "pick db storage to torture test.")
-	f.IntVar(&options.cpu, "cpu", cpu, "seed value to generate randomness")
+	f.IntVar(&options.cpu, "cpu", cpu, "limit number of cores.")
 	f.StringVar(&options.bogn, "bogn", "inmem", "inmem|durable|dgm|workset")
 	f.StringVar(&options.memstore, "memstore", "mvcc", "llrb|mvcc for bogn")
 	f.IntVar(&options.period, "period", 10, "bogn flush period, in seconds")
@@ -49,6 +53,10 @@ func optparse(args []string) {
 	f.IntVar(&options.vallen, "vlen", 32, "size of each value")
 	f.BoolVar(&options.lsm, "lsm", false, "delete in lsm mode.")
 	f.IntVar(&options.seed, "seed", 0, "seed value to generate randomness")
+	f.StringVar(&options.setas, "setas", "all", "set|cas|txn|cur|all")
+	f.StringVar(&options.delas, "delas", "all", "del|txn|cur|delcur|all")
+	f.StringVar(&options.getas, "getas", "all", "get|txn|view|all")
+	f.StringVar(&options.rngas, "rngas", "all", "tgn|tyn|vgn|vyn|all")
 	f.Parse(args)
 
 	if options.seed == 0 {
@@ -89,6 +97,6 @@ func main() {
 	case "bubt":
 		perfbubt()
 	case "bogn":
-		//perfbogn()
+		perfbogn()
 	}
 }

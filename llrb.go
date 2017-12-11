@@ -76,8 +76,14 @@ func llrbLoad(index *llrb.LLRB, seedl int64) error {
 	return nil
 }
 
-var llrbsets = []func(index *llrb.LLRB, key, val, oldval []byte) uint64{
-	llrbSet1, llrbSet2, llrbSet3, llrbSet4,
+type llrbsetfn = func(*llrb.LLRB, []byte, []byte, []byte) uint64
+
+var llrbsets = map[string][]llrbsetfn{
+	"set": []llrbsetfn{llrbSet1},
+	"cas": []llrbsetfn{llrbSet2},
+	"txn": []llrbsetfn{llrbSet3},
+	"cur": []llrbsetfn{llrbSet4},
+	"all": []llrbsetfn{llrbSet1, llrbSet2, llrbSet3, llrbSet4},
 }
 
 func llrbWriter(
@@ -98,23 +104,27 @@ func llrbWriter(
 	epoch, now, markercount := time.Now(), time.Now(), int64(1000000)
 	insn, upsn, deln := options.inserts, options.upserts, options.deletes
 
+	as, bs := llrbsets[options.setas], llrbdels[options.delas]
 	for totalops := insn + upsn + deln; totalops > 0; {
+		llrbset := as[rnd.Intn(len(as))]
+		llrbdel := bs[rnd.Intn(len(bs))]
+
 		idx := rnd.Intn(totalops)
 		switch {
 		case idx < insn:
 			key, value = gcreate(key, value)
-			llrbsets[0](index, key, value, oldvalue)
+			llrbset(index, key, value, oldvalue)
 			atomic.AddInt64(&numentries, 1)
 			x = atomic.AddInt64(&ninserts, 1)
 			insn--
 		case idx < (insn + upsn):
 			key, value = gupdate(key, value)
-			llrbsets[0](index, key, value, oldvalue)
+			llrbset(index, key, value, oldvalue)
 			y = atomic.AddInt64(&nupserts, 1)
 			upsn--
 		case idx < (insn + upsn + deln):
 			key, value = gdelete(key, value)
-			llrbdels[0](index, key, value, false /*lsm*/)
+			llrbdel(index, key, value, options.lsm)
 			atomic.AddInt64(&numentries, -1)
 			z = atomic.AddInt64(&ndeletes, 1)
 			deln--
@@ -132,7 +142,7 @@ func llrbWriter(
 	wg.Done()
 	<-fin
 	n = x + y + z
-	fmsg := "at exit lmdbWriter {%v,%v,%v (%v) in %v}\n"
+	fmsg := "at exit llrbWriter {%v,%v,%v (%v) in %v}\n"
 	fmt.Printf(fmsg, x, y, z, n, duration)
 }
 
@@ -146,18 +156,18 @@ func llrbSet1(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
 }
 
 func llrbSet2(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
-	for i := 2; i >= 0; i-- {
-		oldvalue, oldcas, deleted, ok := index.Get(key, oldvalue)
-		if deleted || ok == false {
-			oldcas = 0
-		} else if oldcas == 0 {
-			panic(fmt.Errorf("unexpected %v", oldcas))
-		} else if bytes.Compare(key, oldvalue) != 0 {
-			panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
-		}
-		oldvalue, _, _ = index.SetCAS(key, value, oldvalue, oldcas)
+	var cas uint64
+
+	oldvalue, oldcas, deleted, ok := index.Get(key, oldvalue)
+	if deleted || ok == false {
+		oldcas = 0
+	} else if oldcas == 0 {
+		panic(fmt.Errorf("unexpected %v", oldcas))
+	} else if bytes.Compare(key, oldvalue) != 0 {
+		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
 	}
-	panic("unreachable code")
+	oldvalue, cas, _ = index.SetCAS(key, value, oldvalue, oldcas)
+	return cas
 }
 
 func llrbSet3(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
@@ -190,8 +200,14 @@ func llrbSet4(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
 	return 0
 }
 
-var llrbdels = []func(*llrb.LLRB, []byte, []byte, bool) (uint64, bool){
-	llrbDel1, llrbDel2, llrbDel3, llrbDel4,
+type llrbdelfn = func(*llrb.LLRB, []byte, []byte, bool) (uint64, bool)
+
+var llrbdels = map[string][]llrbdelfn{
+	"del":    []llrbdelfn{llrbDel1},
+	"txn":    []llrbdelfn{llrbDel2},
+	"cur":    []llrbdelfn{llrbDel3},
+	"delcur": []llrbdelfn{llrbDel4},
+	"all":    []llrbdelfn{llrbDel1, llrbDel2, llrbDel3, llrbDel4},
 }
 
 func llrbDel1(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
@@ -261,8 +277,13 @@ func llrbDel4(index *llrb.LLRB, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	return 0, ok
 }
 
-var llrbgets = []func(x *llrb.LLRB, k, v []byte) ([]byte, uint64, bool, bool){
-	llrbGet1, llrbGet2, llrbGet3,
+type llrbgetfn = func(*llrb.LLRB, []byte, []byte) ([]byte, uint64, bool, bool)
+
+var llrbgets = map[string][]llrbgetfn{
+	"get":  []llrbgetfn{llrbGet1},
+	"txn":  []llrbgetfn{llrbGet2},
+	"view": []llrbgetfn{llrbGet3},
+	"all":  []llrbgetfn{llrbGet1, llrbGet2, llrbGet3},
 }
 
 func llrbGetter(
@@ -273,15 +294,20 @@ func llrbGetter(
 	var key []byte
 	g := Generateread(int64(options.keylen), n, seedl, seedc)
 
+	rnd := rand.New(rand.NewSource(seedl))
 	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
 	value := make([]byte, options.vallen)
 	if options.vallen <= 0 {
 		value = nil
 	}
+
+	cs := llrbgets[options.getas]
 	for ngets+nmisses < int64(options.gets) {
+		llrbget := cs[rnd.Intn(len(cs))]
+
 		ngets++
 		key = g(key, atomic.LoadInt64(&ninserts))
-		if _, _, _, ok := llrbgets[0](index, key, value); ok == false {
+		if _, _, _, ok := llrbget(index, key, value); ok == false {
 			nmisses++
 		}
 		if ngm := ngets + nmisses; ngm%markercount == 0 {
@@ -353,8 +379,14 @@ func llrbGet3(
 	return value, 0, del, ok
 }
 
-var llrbrngs = []func(index *llrb.LLRB, key, val []byte) int64{
-	llrbRange1, llrbRange2, llrbRange3, llrbRange4,
+type llrbrngfn = func(*llrb.LLRB, []byte, []byte) int64
+
+var llrbrngs = map[string][]llrbrngfn{
+	"tgn": []llrbrngfn{llrbRange1},
+	"tyn": []llrbrngfn{llrbRange2},
+	"vgn": []llrbrngfn{llrbRange3},
+	"vyn": []llrbrngfn{llrbRange4},
+	"all": []llrbrngfn{llrbRange1, llrbRange2, llrbRange3, llrbRange4},
 }
 
 func llrbRanger(
@@ -365,13 +397,18 @@ func llrbRanger(
 	var key []byte
 	g := Generateread(int64(options.keylen), n, seedl, seedc)
 
+	rnd := rand.New(rand.NewSource(seedl))
 	epoch, value := time.Now(), make([]byte, options.vallen)
 	if options.vallen <= 0 {
 		value = nil
 	}
+
+	ds := llrbrngs[options.rngas]
 	for nranges < int64(options.ranges) {
+		llrbrng := ds[rnd.Intn(len(ds))]
+
 		key = g(key, atomic.LoadInt64(&ninserts))
-		n := llrbrngs[0](index, key, value)
+		n := llrbrng(index, key, value)
 		nranges += n
 	}
 	duration := time.Since(epoch)
