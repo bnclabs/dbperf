@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-LOAD="-load 100000"
+LOAD="-load 1000000"
 READS="-gets 100000000 -getas all -ranges 10000000 -rngas all"
 
 go build
