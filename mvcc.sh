@@ -3,7 +3,7 @@
 LOAD="-load 1000000 -lsm"
 UPSERTS="-inserts 1000000 -upserts 1000000 -setas cur"
 DELETES="-deletes 1000000 -delas all"
-READS="-gets 10000000 -ranges 100000000 -getas all -rngas all"
+READS="-gets 10000000 -getas all -ranges 100000000 -rngas all"
 
 rm dbperf; go build
 

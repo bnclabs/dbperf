@@ -143,7 +143,7 @@ func bognWriter(
 			upsn--
 		case idx < (insn + upsn + deln):
 			key, value = gdelete(key, value)
-			fmt.Printf("delete %s %s\n", key, value)
+			//fmt.Printf("delete %s %s\n", key, value)
 			bogndel(index, key, value, options.lsm /*lsm*/)
 			atomic.AddInt64(&numentries, -1)
 			z = atomic.AddInt64(&ndeletes, 1)

@@ -26,27 +26,27 @@ func perfmvcc() error {
 
 	var wg sync.WaitGroup
 	n := atomic.LoadInt64(&numentries)
-	fin := make(chan struct{})
+	finch := make(chan struct{})
 
 	if options.inserts+options.upserts+options.deletes > 0 {
 		// writer routines
-		go mvccWriter(index, n, seedl, seedc, fin, &wg)
+		go mvccWriter(index, n, seedl, seedc, finch, &wg)
 		wg.Add(1)
 	}
 	if options.gets > 0 {
 		for i := 0; i < options.cpu; i++ {
-			go mvccGetter(index, n, seedl, seedc, fin, &wg)
+			go mvccGetter(index, n, seedl, seedc, finch, &wg)
 			wg.Add(1)
 		}
 	}
 	if options.ranges > 0 {
 		for i := 0; i < options.cpu; i++ {
-			go mvccRanger(index, n, seedl, seedc, fin, &wg)
+			go mvccRanger(index, n, seedl, seedc, finch, &wg)
 			wg.Add(1)
 		}
 	}
 	wg.Wait()
-	close(fin)
+	close(finch)
 	time.Sleep(1 * time.Second)
 
 	index.Log()
@@ -91,7 +91,7 @@ var mvccsets = map[string][]mvccsetfn{
 
 func mvccWriter(
 	index *llrb.MVCC, n, seedl, seedc int64,
-	fin chan struct{}, wg *sync.WaitGroup) {
+	finch chan struct{}, wg *sync.WaitGroup) {
 	var x, y, z int64
 
 	klen, vlen := int64(options.keylen), int64(options.vallen)
@@ -146,7 +146,7 @@ func mvccWriter(
 	}
 	duration := time.Since(epoch)
 	wg.Done()
-	<-fin
+	<-finch
 	n = x + y + z
 	fmsg := "at exit mvccWriter {%v,%v,%v (%v) in %v}\n"
 	fmt.Printf(fmsg, x, y, z, n, duration)
@@ -299,7 +299,7 @@ var mvccgets = map[string][]mvccgetfn{
 
 func mvccGetter(
 	index *llrb.MVCC, n, seedl, seedc int64,
-	fin chan struct{}, wg *sync.WaitGroup) {
+	finch chan struct{}, wg *sync.WaitGroup) {
 
 	var ngets, nmisses int64
 	var key []byte
@@ -331,7 +331,7 @@ func mvccGetter(
 	}
 	duration := time.Since(epoch)
 	wg.Done()
-	<-fin
+	<-finch
 	fmsg := "at exit, mvccGetter %v:%v items in %v\n"
 	fmt.Printf(fmsg, ngets, nmisses, duration)
 }
@@ -398,7 +398,7 @@ var mvccrngs = map[string][]mvccrngfn{
 
 func mvccRanger(
 	index *llrb.MVCC, n, seedl, seedc int64,
-	fin chan struct{}, wg *sync.WaitGroup) {
+	finch chan struct{}, wg *sync.WaitGroup) {
 
 	var nranges int64
 	var key []byte
@@ -420,7 +420,7 @@ func mvccRanger(
 	}
 	duration := time.Since(epoch)
 	wg.Done()
-	<-fin
+	<-finch
 	fmt.Printf("at exit, mvccRanger %v items in %v\n", nranges, duration)
 }
 

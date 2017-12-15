@@ -1,9 +1,9 @@
 #! /usr/bin/env bash
 
 LOAD="-load 1000000 -lsm"
-UPSERTS="-inserts 1000000 -upserts 1000000 -setas set"
-DELETES="-deletes 1000000 -delas del"
-READS="-gets 10000000 -ranges 100000000 -getas get -rngas tgn"
+UPSERTS="-inserts 1000000 -upserts 1000000 -setas all"
+DELETES="-deletes 1000000 -delas all"
+READS="-gets 10000000 -getas all -ranges 100000000 -rngas all"
 
 go build
 

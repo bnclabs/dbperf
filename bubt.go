@@ -57,19 +57,25 @@ func perfbubt() error {
 	}
 
 	var rwg sync.WaitGroup
+	finch := make(chan struct{})
 	if options.gets > 0 {
 		for i := 0; i < options.cpu; i++ {
-			go bubtGetter(index, n, seed, &rwg)
+			go bubtGetter(index, n, seed, finch, &rwg)
 			rwg.Add(1)
 		}
 	}
 	if options.ranges > 0 {
 		for i := 0; i < options.cpu; i++ {
-			go bubtRanger(index, n, seed, &rwg)
+			go bubtRanger(index, n, seed, finch, &rwg)
 			rwg.Add(1)
 		}
 	}
 	rwg.Wait()
+	close(finch)
+	time.Sleep(1 * time.Second)
+
+	index.Log()
+	index.Validate()
 
 	fmsg = "BUBT total indexed %v items, footprint %v\n"
 	fmt.Printf(fmsg, index.Count(), index.Footprint())
@@ -86,9 +92,9 @@ var bubtgets = map[string][]bubtgetfn{
 	"all":  []bubtgetfn{bubtGet1, bubtGet2},
 }
 
-func bubtGetter(index *bubt.Snapshot, n, seed int64, wg *sync.WaitGroup) {
-
-	defer wg.Done()
+func bubtGetter(
+	index *bubt.Snapshot, n, seed int64, finch chan struct{},
+	wg *sync.WaitGroup) {
 
 	var ngets, nmisses int64
 	var key []byte
@@ -124,6 +130,8 @@ loop:
 		}
 	}
 	duration := time.Since(epoch)
+	wg.Done()
+	<-finch
 	fmsg := "at exit, bubtGetter %v:%v items in %v\n"
 	fmt.Printf(fmsg, ngets, nmisses, duration)
 }
@@ -164,8 +172,9 @@ var bubtrngs = map[string][]bubtrngfn{
 	"all": []bubtrngfn{bubtRange1, bubtRange2},
 }
 
-func bubtRanger(index *bubt.Snapshot, n, seed int64, wg *sync.WaitGroup) {
-	defer wg.Done()
+func bubtRanger(
+	index *bubt.Snapshot, n, seed int64, finch chan struct{},
+	wg *sync.WaitGroup) {
 
 	var nranges int64
 	var key []byte
@@ -188,6 +197,8 @@ loop:
 		}
 	}
 	duration := time.Since(epoch)
+	wg.Done()
+	<-finch
 	fmt.Printf("at exit, bubtRanger %v items in %v\n", nranges, duration)
 }
 
