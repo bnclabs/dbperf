@@ -318,7 +318,7 @@ func lmdbGetter(
 		return nil
 	}
 
-	now, markercount := time.Now(), int64(1000000)
+	now, markercount := time.Now(), int64(10000000)
 	for ngets+nmisses < int64(options.gets) {
 		key = g(key, atomic.LoadInt64(&ninserts))
 		env.View(get)
@@ -378,7 +378,7 @@ func lmdbRanger(
 		return nil
 	}
 
-	now, markercount := time.Now(), int64(10000000)
+	now, markercount := time.Now(), int64(100000000)
 	for nranges+nmisses < int64(options.ranges) {
 		key = g(key, atomic.LoadInt64(&ninserts))
 		env.View(ranger)

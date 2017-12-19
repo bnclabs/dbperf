@@ -1,8 +1,8 @@
 #! /usr/bin/env bash
 
-LOAD="-load 100000"
-WRITES="-inserts 1000000 -upserts 1000000 -deletes 1000000"
-READS="-gets 10000000 -ranges 100000000"
+LOAD="-load 1000000"
+WRITES="-inserts 10000000 -upserts 10000000 -deletes 10000000"
+READS="-gets 100000000 -ranges 100000000"
 
 go build
 
