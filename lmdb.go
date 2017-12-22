@@ -191,7 +191,7 @@ func lmdbLoad(env *lmdb.Env, dbi lmdb.DBI, seedl int64) error {
 	atomic.AddInt64(&totalwrites, int64(options.load))
 
 	count = int64(getlmdbCount(env, dbi))
-	fmt.Printf("Loaded %v items in %v\n", count, time.Since(now))
+	fmt.Printf("Loaded %v items in %v\n", count, time.Since(epoch))
 	return nil
 }
 

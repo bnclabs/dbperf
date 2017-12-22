@@ -39,7 +39,7 @@ func optparse(args []string) {
 
 	f.StringVar(&options.db, "db", "llrb", "pick db storage to torture test.")
 	f.IntVar(&options.cpu, "cpu", cpu, "limit number of cores.")
-	f.StringVar(&options.bogn, "bogn", "inmem", "inmem|durable|dgm|workset")
+	f.StringVar(&options.bogn, "bogn", "memonly", "memonly|durable|dgm|workset")
 	f.StringVar(&options.memstore, "memstore", "mvcc", "llrb|mvcc for bogn")
 	f.IntVar(&options.period, "period", 10, "bogn flush period, in seconds")
 	f.IntVar(&options.load, "load", 1000000, "items to initially load")

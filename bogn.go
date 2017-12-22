@@ -556,7 +556,7 @@ func bognsettings(seed int) s.Settings {
 	setts["llrb.allocator"] = "flist"
 	setts["llrb.snapshottick"] = []int64{4, 8, 16, 32}[rnd.Intn(10000)%4]
 	switch options.bogn {
-	case "inmem":
+	case "memonly":
 		setts["durable"] = false
 		setts["dgm"] = false
 		setts["workingset"] = false
