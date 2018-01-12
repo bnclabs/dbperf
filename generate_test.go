@@ -43,7 +43,8 @@ func TestGenerateloads(t *testing.T) {
 	if int64(len(m)) != n {
 		t.Fatalf("expected %v, got %v", n, len(m))
 	}
-	t.Logf("Took %v to load %v items", time.Since(now), len(m))
+	took := time.Since(now).Round(time.Second)
+	t.Logf("Took %v to load %v items", took, len(m))
 }
 
 func TestGenerateloadr(t *testing.T) {
@@ -62,7 +63,8 @@ func TestGenerateloadr(t *testing.T) {
 	if int64(len(m)) != n {
 		t.Fatalf("expected %v, got %v", n, len(m))
 	}
-	t.Logf("Took %v to load %v items", time.Since(now), len(m))
+	took := time.Since(now).Round(time.Second)
+	t.Logf("Took %v to load %v items", took, len(m))
 }
 
 func TestGenerateCRUD(t *testing.T) {

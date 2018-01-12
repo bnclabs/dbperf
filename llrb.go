@@ -72,7 +72,8 @@ func llrbLoad(index *llrb.LLRB, seedl int64) error {
 	atomic.AddInt64(&numentries, int64(options.load))
 	atomic.AddInt64(&totalwrites, int64(options.load))
 
-	fmt.Printf("Loaded %v items in %v\n", index.Count(), time.Since(now))
+	took := time.Since(now).Round(time.Second)
+	fmt.Printf("Loaded %v items in %v\n", index.Count(), took)
 	return nil
 }
 
@@ -138,12 +139,12 @@ func llrbWriter(
 			now = time.Now()
 		}
 	}
-	duration := time.Since(epoch)
+	took := time.Since(epoch).Round(time.Second)
 	wg.Done()
 	<-fin
 	n = x + y + z
 	fmsg := "at exit llrbWriter {%v,%v,%v (%v) in %v}\n"
-	fmt.Printf(fmsg, x, y, z, n, duration)
+	fmt.Printf(fmsg, x, y, z, n, took)
 }
 
 func llrbSet1(index *llrb.LLRB, key, value, oldvalue []byte) uint64 {
@@ -318,11 +319,11 @@ func llrbGetter(
 			now = time.Now()
 		}
 	}
-	duration := time.Since(epoch)
+	took := time.Since(epoch).Round(time.Second)
 	wg.Done()
 	<-fin
 	fmsg := "at exit, llrbGetter %v:%v items in %v\n"
-	fmt.Printf(fmsg, ngets, nmisses, duration)
+	fmt.Printf(fmsg, ngets, nmisses, took)
 }
 
 func llrbGet1(
@@ -411,10 +412,10 @@ func llrbRanger(
 		n := llrbrng(index, key, value)
 		nranges += n
 	}
-	duration := time.Since(epoch)
+	took := time.Since(epoch).Round(time.Second)
 	wg.Done()
 	<-fin
-	fmt.Printf("at exit, llrbRanger %v items in %v\n", nranges, duration)
+	fmt.Printf("at exit, llrbRanger %v items in %v\n", nranges, took)
 }
 
 func llrbRange1(index *llrb.LLRB, key, value []byte) (n int64) {

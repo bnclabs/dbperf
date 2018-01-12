@@ -88,7 +88,8 @@ func bognLoad(index *bogn.Bogn, seedl int64) error {
 	n := atomic.AddInt64(&numentries, int64(options.load))
 	atomic.AddInt64(&totalwrites, int64(options.load))
 
-	fmt.Printf("Loaded %v items in %v\n", n, time.Since(now))
+	took := time.Since(now).Round(time.Second)
+	fmt.Printf("Loaded %v items in %v\n", n, took)
 	return nil
 }
 
@@ -158,12 +159,12 @@ func bognWriter(
 			now = time.Now()
 		}
 	}
-	duration := time.Since(epoch)
+	took := time.Since(epoch).Round(time.Second)
 	wg.Done()
 	<-fin
 	n = x + y + z
 	fmsg := "at exit bognWriter {%v,%v,%v (%v) in %v}\n"
-	fmt.Printf(fmsg, x, y, z, n, duration)
+	fmt.Printf(fmsg, x, y, z, n, took)
 }
 
 func bognSet1(index *bogn.Bogn, key, value, oldvalue []byte) uint64 {
@@ -343,11 +344,11 @@ func bognGetter(
 			now = time.Now()
 		}
 	}
-	duration := time.Since(epoch)
+	took := time.Since(epoch).Round(time.Second)
 	wg.Done()
 	<-fin
 	fmsg := "at exit, bognGetter %v:%v items in %v\n"
-	fmt.Printf(fmsg, ngets, nmisses, duration)
+	fmt.Printf(fmsg, ngets, nmisses, took)
 }
 
 func bognGet1(
@@ -434,10 +435,10 @@ func bognRanger(
 		n := bognrng(index, key, value)
 		nranges += n
 	}
-	duration := time.Since(epoch)
+	took := time.Since(epoch).Round(time.Second)
 	wg.Done()
 	<-fin
-	fmt.Printf("at exit, bognRanger %v items in %v\n", nranges, duration)
+	fmt.Printf("at exit, bognRanger %v items in %v\n", nranges, took)
 }
 
 func bognRange1(index *bogn.Bogn, key, value []byte) (n int64) {

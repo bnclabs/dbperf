@@ -40,7 +40,8 @@ func perfbubt() error {
 
 	now := time.Now()
 	bt.Build(iter, md)
-	fmt.Printf("Took %v to build %v entries\n", time.Since(now), n)
+	took := time.Since(now).Round(time.Second)
+	fmt.Printf("Took %v to build %v entries\n", took, n)
 	bt.Close()
 
 	index, err := bubt.OpenSnapshot(name, paths, mmap)
@@ -129,11 +130,11 @@ loop:
 			break loop
 		}
 	}
-	duration := time.Since(epoch)
+	took := time.Since(epoch).Round(time.Second)
 	wg.Done()
 	<-finch
 	fmsg := "at exit, bubtGetter %v:%v items in %v\n"
-	fmt.Printf(fmsg, ngets, nmisses, duration)
+	fmt.Printf(fmsg, ngets, nmisses, took)
 }
 
 func bubtGet1(
@@ -196,10 +197,10 @@ loop:
 			break loop
 		}
 	}
-	duration := time.Since(epoch)
+	took := time.Since(epoch).Round(time.Second)
 	wg.Done()
 	<-finch
-	fmt.Printf("at exit, bubtRanger %v items in %v\n", nranges, duration)
+	fmt.Printf("at exit, bubtRanger %v items in %v\n", nranges, took)
 }
 
 func bubtRange1(index *bubt.Snapshot, key, value []byte) (n int64) {

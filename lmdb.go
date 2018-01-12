@@ -191,7 +191,8 @@ func lmdbLoad(env *lmdb.Env, dbi lmdb.DBI, seedl int64) error {
 	atomic.AddInt64(&totalwrites, int64(options.load))
 
 	count = int64(getlmdbCount(env, dbi))
-	fmt.Printf("Loaded %v items in %v\n", count, time.Since(epoch))
+	took := time.Since(epoch).Round(time.Second)
+	fmt.Printf("Loaded %v items in %v\n", count, took)
 	return nil
 }
 
@@ -276,11 +277,11 @@ func lmdbWriter(
 
 	n := atomic.AddInt64(&totalwrites, int64(x+y+z))
 
-	duration := time.Since(epoch)
+	took := time.Since(epoch).Round(time.Second)
 	wg.Done()
 	<-fin
 	fmsg := "at exit lmdbWriter {%v,%v,%v (%v) in %v}\n"
-	fmt.Printf(fmsg, x, y, z, n, duration)
+	fmt.Printf(fmsg, x, y, z, n, took)
 }
 
 func lmdbGetter(
@@ -291,11 +292,11 @@ func lmdbGetter(
 
 	epoch := time.Now()
 	defer func() {
-		duration := time.Since(epoch)
+		took := time.Since(epoch).Round(time.Second)
 		wg.Done()
 		<-fin
 		fmsg := "at exit, lmdbGetter %v:%v items in %v\n"
-		fmt.Printf(fmsg, ngets, nmisses, duration)
+		fmt.Printf(fmsg, ngets, nmisses, took)
 	}()
 
 	env, dbi, err := readlmdb(path, 0)
@@ -340,11 +341,11 @@ func lmdbRanger(
 
 	epoch := time.Now()
 	defer func() {
-		duration := time.Since(epoch)
+		took := time.Since(epoch).Round(time.Second)
 		wg.Done()
 		<-fin
 		fmsg := "at exit, lmdbRanger %v:%v items in %v\n"
-		fmt.Printf(fmsg, nranges, nmisses, duration)
+		fmt.Printf(fmsg, nranges, nmisses, took)
 	}()
 
 	env, dbi, err := readlmdb(path, 0)
@@ -371,7 +372,6 @@ func lmdbRanger(
 			nranges++
 			if err != nil {
 				nmisses++
-				return nil
 			}
 			_, _, err = cur.Get(nil, nil, lmdb.Next)
 		}

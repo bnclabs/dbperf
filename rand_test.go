@@ -12,8 +12,9 @@ func TestRandIntnUnique(t *testing.T) {
 	for i := 0; i < n; i++ {
 		m[rnd.Intn(n)] = true
 	}
+	took := time.Since(now).Round(time.Second)
 	fmsg := "Took %v to populate %v(%v) items in map"
-	t.Logf(fmsg, time.Since(now), len(m), n)
+	t.Logf(fmsg, took, len(m), n)
 }
 
 func BenchmarkSourceInt63(b *testing.B) {

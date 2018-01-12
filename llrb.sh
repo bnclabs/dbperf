@@ -1,11 +1,11 @@
 #! /usr/bin/env bash
 
 LOAD="-load 1000000 -lsm"
-UPSERTS="-inserts 1000000 -upserts 1000000 -setas all"
-DELETES="-deletes 1000000 -delas all"
-READS="-gets 10000000 -getas all -ranges 100000000 -rngas all"
+UPSERTS="-inserts 1000000 -upserts 1000000 -setas set"
+DELETES="-deletes 1000000 -delas del"
+READS="-gets 10000000 -getas get -ranges 100000000 -rngas tgn"
 
-go build
+rm dbperf; go build
 
 echo "./dbperf -db llrb -klen 32 -vlen 32 $LOAD $UPSERTS $DELETES $READS"
 ./dbperf -db llrb -klen 32 -vlen 32 $LOAD $UPSERTS $DELETES $READS

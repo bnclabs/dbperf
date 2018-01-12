@@ -2,9 +2,10 @@
 
 ARGS="-db bogn -bogn memonly -klen 32 -vlen 32"
 LOAD="-load 1000000 -lsm"
-UPSERTS="-inserts 10000000 -upserts 10000000 -setas set"
-DELETES="-deletes 10000000 -delas del"
-READS="-gets 100000000 -getas get -ranges 100000000 -rngas vgn"
+UPSERTS="-inserts 1000000 -upserts 1000000 -setas set"
+DELETES="-deletes 1000000 -delas del"
+READS="-gets 10000000 -getas get -ranges 10000000 -rngas vgn"
+
 rm -rf *.svg dbperf; go build
 
 echo "./dbperf $ARGS $LOAD $UPSERTS $DELETES $READS"
