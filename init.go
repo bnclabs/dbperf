@@ -1,6 +1,6 @@
 package main
 
-import "github.com/prataprc/golog"
+import "github.com/bnclabs/golog"
 
 func init() {
 	setts := map[string]interface{}{

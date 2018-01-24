@@ -8,7 +8,7 @@ import "net/http"
 import "runtime/pprof"
 import _ "net/http/pprof"
 
-import "github.com/prataprc/golog"
+import "github.com/bnclabs/golog"
 
 var options struct {
 	db       string

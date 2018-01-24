@@ -11,7 +11,7 @@ import "math/rand"
 
 import "github.com/prataprc/gostore/bogn"
 import "github.com/prataprc/gostore/api"
-import s "github.com/prataprc/gosettings"
+import s "github.com/bnclabs/gosettings"
 
 //import humanize "github.com/dustin/go-humanize" TODO
 

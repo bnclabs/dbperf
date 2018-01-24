@@ -8,7 +8,7 @@ import "sync/atomic"
 import "math/rand"
 import "path/filepath"
 
-import "github.com/prataprc/golog"
+import "github.com/bnclabs/golog"
 import "github.com/bmatsuo/lmdb-go/lmdb"
 import humanize "github.com/dustin/go-humanize"
 
