@@ -9,7 +9,7 @@ import "strconv"
 import "sync/atomic"
 import "math/rand"
 
-import "github.com/prataprc/gostore/llrb"
+import "github.com/bnclabs/gostore/llrb"
 import humanize "github.com/dustin/go-humanize"
 
 func perfllrb() error {

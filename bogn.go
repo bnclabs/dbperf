@@ -9,8 +9,8 @@ import "strconv"
 import "sync/atomic"
 import "math/rand"
 
-import "github.com/prataprc/gostore/bogn"
-import "github.com/prataprc/gostore/api"
+import "github.com/bnclabs/gostore/bogn"
+import "github.com/bnclabs/gostore/api"
 import s "github.com/bnclabs/gosettings"
 
 //import humanize "github.com/dustin/go-humanize" TODO

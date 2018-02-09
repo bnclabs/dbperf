@@ -10,8 +10,8 @@ import "strconv"
 import "path/filepath"
 import "math/rand"
 
-import "github.com/prataprc/gostore/api"
-import "github.com/prataprc/gostore/bubt"
+import "github.com/bnclabs/gostore/api"
+import "github.com/bnclabs/gostore/bubt"
 
 func perfbubt() error {
 	path, paths := os.TempDir(), []string{}
