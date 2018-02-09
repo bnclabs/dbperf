@@ -13,4 +13,4 @@ coverage:
 	rm -rf coverage.out
 
 clean:
-	rm -rf coverage.out dbtest dbperf.mprof dbperf.pprof
+	rm -rf coverage.out dbtest *.mprof *.pprof *.svg
