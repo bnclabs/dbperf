@@ -37,7 +37,7 @@ func optparse(args []string) {
 	f := flag.NewFlagSet("dbperf", flag.ExitOnError)
 	cpu := runtime.GOMAXPROCS(-1) / 2
 
-	f.StringVar(&options.db, "db", "llrb", "pick db storage to torture test.")
+	f.StringVar(&options.db, "db", "llrb", "pick db storage to benchmark.")
 	f.IntVar(&options.cpu, "cpu", cpu, "limit number of cores.")
 	f.StringVar(&options.bogn, "bogn", "memonly", "memonly|durable|dgm|workset")
 	f.StringVar(&options.memstore, "memstore", "mvcc", "llrb|mvcc for bogn")
@@ -90,6 +90,8 @@ func main() {
 	switch options.db {
 	case "lmdb":
 		perflmdb()
+	case "bolt":
+		perfbolt()
 	case "llrb":
 		perfllrb()
 	case "mvcc":
