@@ -136,12 +136,14 @@ func bognWriter(
 			atomic.AddInt64(&numentries, 1)
 			x = atomic.AddInt64(&ninserts, 1)
 			insn--
+
 		case idx < (insn + upsn):
 			key, value = gupdate(key, value)
 			//fmt.Printf("update %s %s\n", key, value)
 			bognset(index, key, value, oldvalue)
 			y = atomic.AddInt64(&nupserts, 1)
 			upsn--
+
 		case idx < (insn + upsn + deln):
 			key, value = gdelete(key, value)
 			//fmt.Printf("delete %s %s\n", key, value)
@@ -149,6 +151,10 @@ func bognWriter(
 			atomic.AddInt64(&numentries, -1)
 			z = atomic.AddInt64(&ndeletes, 1)
 			deln--
+
+		default:
+			fmsg := "insn: %v, upsn: %v, deln: %v idx: %v"
+			panic(fmt.Errorf(fmsg, insn, upsn, deln, idx))
 		}
 		totalops = insn + upsn + deln
 		if n := x + y + z; n%markercount == 0 {

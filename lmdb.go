@@ -244,7 +244,7 @@ func lmdbWriter(
 			x = atomic.AddInt64(&ninserts, 1)
 			insn--
 
-		case idx < upsn:
+		case idx < (insn + upsn):
 			key, value = gupdate(key, value)
 			if err := env.Update(update); err != nil {
 				log.Errorf("key %q err : %v", key, err)
@@ -253,7 +253,7 @@ func lmdbWriter(
 			y = atomic.AddInt64(&nupserts, 1)
 			upsn--
 
-		case idx < deln:
+		case idx < (insn + upsn + deln):
 			key, value = gdelete(key, value)
 			if err := env.Update(delete); err != nil {
 				atomic.AddInt64(&xdeletes, 1)
@@ -263,6 +263,10 @@ func lmdbWriter(
 			z = atomic.LoadInt64(&ndeletes) + atomic.LoadInt64(&xdeletes)
 			atomic.AddInt64(&numentries, -1)
 			deln--
+
+		default:
+			fmsg := "insn: %v, upsn: %v, deln: %v idx: %v"
+			panic(fmt.Errorf(fmsg, insn, upsn, deln, idx))
 		}
 		totalops = insn + upsn + deln
 		if count > 0 && count%markercount == 0 {

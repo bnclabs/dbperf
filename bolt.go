@@ -12,8 +12,6 @@ import "github.com/bnclabs/golog"
 import "github.com/coreos/bbolt"
 import humanize "github.com/dustin/go-humanize"
 
-var bucketname = "dbperf"
-
 func perfbolt() error {
 	path := boltpath()
 	defer func() {
@@ -184,7 +182,7 @@ func boltWriter(
 			x = atomic.AddInt64(&ninserts, 1)
 			insn--
 
-		case idx < upsn:
+		case idx < (insn + upsn):
 			key, value = gupdate(key, value)
 			if err := db.Update(update); err != nil {
 				log.Errorf("key %q err : %v", key, err)
@@ -193,7 +191,7 @@ func boltWriter(
 			y = atomic.AddInt64(&nupserts, 1)
 			upsn--
 
-		case idx < deln:
+		case idx < (insn + upsn + deln):
 			key, value = gdelete(key, value)
 			if err := db.Update(delete); err != nil {
 				atomic.AddInt64(&xdeletes, 1)
@@ -203,6 +201,10 @@ func boltWriter(
 			z = atomic.LoadInt64(&ndeletes) + atomic.LoadInt64(&xdeletes)
 			atomic.AddInt64(&numentries, -1)
 			deln--
+
+		default:
+			fmsg := "insn: %v, upsn: %v, deln: %v idx: %v"
+			panic(fmt.Errorf(fmsg, insn, upsn, deln, idx))
 		}
 		totalops = insn + upsn + deln
 		if count > 0 && count%markercount == 0 {
@@ -250,13 +252,14 @@ func boltGetter(
 		v := b.Get(key)
 		if v == nil {
 			nmisses++
+		} else {
+			ngets++
 		}
 		return nil
 	}
 
 	now, markercount := time.Now(), int64(10000000)
 	for ngets+nmisses < int64(options.gets) {
-		ngets++
 		key = g(key, atomic.LoadInt64(&ninserts))
 		if err := db.View(get); err != nil {
 			panic(err)
