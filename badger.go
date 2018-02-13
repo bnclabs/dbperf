@@ -17,9 +17,9 @@ var bucketname = "dbperf"
 func perfbadger() error {
 	pathdir := badgerpath()
 	defer func() {
-		//if err := os.RemoveAll(pathdir); err != nil {
-		//	panic(err)
-		//}
+		if err := os.RemoveAll(pathdir); err != nil {
+			panic(err)
+		}
 	}()
 	fmt.Printf("BADGER path %q\n", pathdir)
 
