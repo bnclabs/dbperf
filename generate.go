@@ -54,6 +54,7 @@ func Generateloadr(
 		key = Fixbuffer(key, int64(klen))
 		copy(key, zeros)
 		copy(key[klen-int64(len(ascii)):klen], ascii)
+		//fmt.Printf("load %q\n", key)
 		if value != nil { // create value
 			value = Fixbuffer(value, int64(vlen))
 			copy(value, zeros)
@@ -82,6 +83,7 @@ func Generatecreate(
 		key = Fixbuffer(key, int64(klen))
 		copy(key, zeros)
 		copy(key[klen-int64(len(ascii)):klen], ascii)
+		//fmt.Printf("create %q\n", key)
 		if value != nil { // create value
 			value = Fixbuffer(value, int64(vlen))
 			copy(value, zeros)
@@ -128,6 +130,7 @@ func Generateupdate(
 		key = Fixbuffer(key, int64(klen))
 		copy(key, zeros)
 		copy(key[klen-int64(len(ascii)):klen], ascii)
+		//fmt.Printf("update %q\n", key)
 		if value != nil { // create value
 			value = Fixbuffer(value, int64(vlen))
 			copy(value, zeros)
@@ -168,6 +171,7 @@ func Generateread(klen, loadn, seedl, seedc int64) func([]byte, int64) []byte {
 		copy(key, zeros)
 		ascii := strconv.AppendInt(textint[:0], int64(keynum), 10)
 		copy(key[klen-int64(len(ascii)):klen], ascii)
+		//fmt.Printf("read %q\n", key)
 		return key
 	}
 }
@@ -231,6 +235,7 @@ func Generatedelete(
 		key = Fixbuffer(key, int64(klen))
 		copy(key, zeros)
 		copy(key[klen-int64(len(ascii)):klen], ascii)
+		//fmt.Printf("delete %q\n", key)
 		if value != nil { // create value
 			value = Fixbuffer(value, int64(vlen))
 			copy(value, zeros)
