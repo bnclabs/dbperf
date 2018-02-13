@@ -100,5 +100,7 @@ func main() {
 		perfbubt()
 	case "bogn":
 		perfbogn()
+	case "badger":
+		perfbadger()
 	}
 }
