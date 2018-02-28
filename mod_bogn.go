@@ -17,14 +17,14 @@ import s "github.com/bnclabs/gosettings"
 
 func perfbogn() error {
 	setts := bognsettings(options.seed)
-	bogn.PurgeIndex("dbperf", setts)
+	logpath, diskstore := setts.String("logpath"), setts.String("diskstore")
+	diskpaths := setts.Strings("bubt.diskpaths")
+	bogn.PurgeIndex("dbperf", logpath, diskstore, diskpaths)
 
 	index, err := bogn.New("dbperf", setts)
 	if err != nil {
 		panic(err)
 	}
-	defer index.Destroy()
-	defer index.Close()
 	index.Start()
 
 	seedl, seedc := int64(options.seed), int64(options.seed)+100
@@ -67,6 +67,8 @@ func perfbogn() error {
 	//fmsg := "BOGN total indexed %v items, footprint %v\n"
 	//fmt.Printf(fmsg, index.Count(), humanize.Bytes(uint64(index.Footprint())))
 
+	index.Close()
+	index.Destroy()
 	return nil
 }
 

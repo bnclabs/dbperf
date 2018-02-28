@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-ARGS="-db bogn -bogn durable -klen 32 -vlen 32"
+ARGS="-db bogn -bogn durable -klen 32 -vlen 32 -log bogn"
 LOAD="-load 1000000 -lsm"
 UPSERTS="-inserts 1000000 -upserts 1000000 -setas set"
 DELETES="-deletes 1000000 -delas del"
