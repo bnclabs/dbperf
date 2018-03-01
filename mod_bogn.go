@@ -178,9 +178,7 @@ func bognWriter(
 func bognSet1(index *bogn.Bogn, key, value, oldvalue []byte) uint64 {
 	oldvalue, cas := index.Set(key, value, oldvalue)
 	//fmt.Printf("update1 %q %q %q \n", key, value, oldvalue)
-	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
-		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
-	}
+	comparekeyvalue(key, oldvalue, options.vallen)
 	return cas
 }
 
@@ -192,9 +190,8 @@ func bognSet2(index *bogn.Bogn, key, value, oldvalue []byte) uint64 {
 		oldcas = 0
 	} else if oldcas == 0 {
 		panic(fmt.Errorf("unexpected %v", oldcas))
-	} else if bytes.Compare(key, oldvalue) != 0 {
-		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
 	}
+	comparekeyvalue(key, oldvalue, options.vallen)
 	oldvalue, cas, _ = index.SetCAS(key, value, oldvalue, oldcas)
 	return cas
 }
@@ -203,9 +200,7 @@ func bognSet3(index *bogn.Bogn, key, value, oldvalue []byte) uint64 {
 	txn := index.BeginTxn(0xC0FFEE)
 	oldvalue = txn.Set(key, value, oldvalue)
 	//fmt.Printf("update3 %q %q %q \n", key, value, oldvalue)
-	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
-		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
-	}
+	comparekeyvalue(key, oldvalue, options.vallen)
 	err := txn.Commit()
 	if err != nil && err.Error() == api.ErrorRollback.Error() {
 		atomic.AddInt64(&rollbacks, 1)
@@ -221,9 +216,7 @@ func bognSet4(index *bogn.Bogn, key, value, oldvalue []byte) uint64 {
 	}
 	oldvalue = cur.Set(key, value, oldvalue)
 	//fmt.Printf("update4 %q %q %q \n", key, value, oldvalue)
-	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
-		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
-	}
+	comparekeyvalue(key, oldvalue, options.vallen)
 	err = txn.Commit()
 	if err != nil && err.Error() == api.ErrorRollback.Error() {
 		atomic.AddInt64(&rollbacks, 1)
@@ -245,9 +238,8 @@ func bognDel1(index *bogn.Bogn, key, oldvalue []byte, lsm bool) (uint64, bool) {
 	var ok bool
 
 	oldvalue, cas := index.Delete(key, oldvalue, lsm)
-	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
-		panic(fmt.Errorf("expected %q, got %s", key, oldvalue))
-	} else if len(oldvalue) > 0 {
+	comparekeyvalue(key, oldvalue, options.vallen)
+	if len(oldvalue) > 0 {
 		ok = true
 	}
 	return cas, ok
@@ -258,9 +250,8 @@ func bognDel2(index *bogn.Bogn, key, oldvalue []byte, lsm bool) (uint64, bool) {
 
 	txn := index.BeginTxn(0xC0FFEE)
 	oldvalue = txn.Delete(key, oldvalue, lsm)
-	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
-		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
-	} else if len(oldvalue) > 0 {
+	comparekeyvalue(key, oldvalue, options.vallen)
+	if len(oldvalue) > 0 {
 		ok = true
 	}
 	err := txn.Commit()
@@ -279,9 +270,8 @@ func bognDel3(index *bogn.Bogn, key, oldvalue []byte, lsm bool) (uint64, bool) {
 		panic(err)
 	}
 	oldvalue = cur.Delete(key, oldvalue, lsm)
-	if len(oldvalue) > 0 && bytes.Compare(key, oldvalue) != 0 {
-		panic(fmt.Errorf("expected %q, got %q", key, oldvalue))
-	} else if len(oldvalue) > 0 {
+	comparekeyvalue(key, oldvalue, options.vallen)
+	if len(oldvalue) > 0 {
 		ok = true
 	}
 	err = txn.Commit()
@@ -464,8 +454,8 @@ func bognRange1(index *bogn.Bogn, key, value []byte) (n int64) {
 			panic(xerr)
 		} else if (int64(x)%2) != delmod && del == true {
 			panic("unexpected delete")
-		} else if del == false && bytes.Compare(key, value) != 0 {
-			panic(fmt.Errorf("expected %q, got %q", key, value))
+		} else if del == false {
+			comparekeyvalue(key, value, options.vallen)
 		}
 		n++
 	}
@@ -490,8 +480,8 @@ func bognRange2(index *bogn.Bogn, key, value []byte) (n int64) {
 			panic(xerr)
 		} else if (int64(x)%2) != delmod && del == true {
 			panic("unexpected delete")
-		} else if del == false && bytes.Compare(key, value) != 0 {
-			panic(fmt.Errorf("expected %q, got %q", key, value))
+		} else if del == false {
+			comparekeyvalue(key, value, options.vallen)
 		}
 		n++
 	}
@@ -516,8 +506,8 @@ func bognRange3(index *bogn.Bogn, key, value []byte) (n int64) {
 			panic(xerr)
 		} else if (int64(x)%2) != delmod && del == true {
 			panic("unexpected delete")
-		} else if del == false && bytes.Compare(key, value) != 0 {
-			panic(fmt.Errorf("expected %q, got %q", key, value))
+		} else if del == false {
+			comparekeyvalue(key, value, options.vallen)
 		}
 		n++
 	}
@@ -542,8 +532,8 @@ func bognRange4(index *bogn.Bogn, key, value []byte) (n int64) {
 			panic(xerr)
 		} else if (int64(x)%2) != delmod && del == true {
 			panic("unexpected delete")
-		} else if del == false && bytes.Compare(key, value) != 0 {
-			panic(fmt.Errorf("expected %q, got %q", key, value))
+		} else if del == false {
+			comparekeyvalue(key, value, options.vallen)
 		}
 		n++
 	}
@@ -552,6 +542,15 @@ func bognRange4(index *bogn.Bogn, key, value []byte) (n int64) {
 }
 
 func bognsettings(seed int) s.Settings {
+	sz := int64(options.keylen)
+	msizes := []int64{
+		multof4096(4096 + sz), multof4096(8192 + sz), multof4096(12288 + sz),
+	}
+	sz = int64(options.keylen + options.vallen)
+	zsizes := []int64{
+		multof4096(4096 + sz), multof4096(8192 + sz), multof4096(12288 + sz),
+	}
+
 	rnd := rand.New(rand.NewSource(int64(seed)))
 	setts := bogn.Defaultsettings()
 	setts["memstore"] = options.memstore
@@ -559,8 +558,8 @@ func bognsettings(seed int) s.Settings {
 	ratio := []float64{.5, .33, .25, .20, .16, .125, .1}[rnd.Intn(10000)%7]
 	setts["ratio"] = ratio
 	setts["bubt.mmap"] = []bool{true, false}[rnd.Intn(10000)%2]
-	setts["bubt.msize"] = []int64{4096, 8192, 12288}[rnd.Intn(10000)%3]
-	setts["bubt.zsize"] = []int64{4096, 8192, 12288}[rnd.Intn(10000)%3]
+	setts["bubt.msize"] = msizes[rnd.Intn(10000)%3]
+	setts["bubt.zsize"] = zsizes[rnd.Intn(10000)%3]
 	//setts["llrb.memcapacity"] = 10 * 1024 * 1024 * 1024
 	setts["llrb.allocator"] = "flist"
 	setts["llrb.snapshottick"] = []int64{4, 8, 16, 32}[rnd.Intn(10000)%4]
@@ -594,4 +593,8 @@ func bognsettings(seed int) s.Settings {
 	fmt.Printf("bubt diskpaths:%v msize:%v zsize:%v mmap:%v\n", a, b, c, d)
 
 	return setts
+}
+
+func multof4096(sz int64) int64 {
+	return ((sz + 4096) / 4096) * 4096
 }

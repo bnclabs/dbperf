@@ -23,8 +23,7 @@ func Generateloads(klen, vlen, n int64) func(k, v []byte) ([]byte, []byte) {
 		copy(key[klen-int64(len(ascii)):klen], ascii)
 		if value != nil { // create value
 			value = Fixbuffer(value, int64(vlen))
-			copy(value, zeros)
-			copy(value[vlen-int64(len(ascii)):vlen], ascii)
+			copytovalue(value, ascii, klen, vlen)
 		}
 
 		keynum++
@@ -57,8 +56,7 @@ func Generateloadr(
 		//fmt.Printf("load %q\n", key)
 		if value != nil { // create value
 			value = Fixbuffer(value, int64(vlen))
-			copy(value, zeros)
-			copy(value[vlen-int64(len(ascii)):vlen], ascii)
+			copytovalue(value, ascii, klen, vlen)
 		}
 
 		count++
@@ -86,8 +84,7 @@ func Generatecreate(
 		//fmt.Printf("create %q\n", key)
 		if value != nil { // create value
 			value = Fixbuffer(value, int64(vlen))
-			copy(value, zeros)
-			copy(value[vlen-int64(len(ascii)):vlen], ascii)
+			copytovalue(value, ascii, klen, vlen)
 		}
 		return key, value
 	}
@@ -133,8 +130,7 @@ func Generateupdate(
 		//fmt.Printf("update %q\n", key)
 		if value != nil { // create value
 			value = Fixbuffer(value, int64(vlen))
-			copy(value, zeros)
-			copy(value[vlen-int64(len(ascii)):vlen], ascii)
+			copytovalue(value, ascii, klen, vlen)
 		}
 		return key, value
 	}
@@ -238,8 +234,7 @@ func Generatedelete(
 		//fmt.Printf("delete %q\n", key)
 		if value != nil { // create value
 			value = Fixbuffer(value, int64(vlen))
-			copy(value, zeros)
-			copy(value[vlen-int64(len(ascii)):vlen], ascii)
+			copytovalue(value, ascii, klen, vlen)
 		}
 		return key, value
 	}
@@ -258,6 +253,16 @@ func makeuniquekey(rnd *rand.Rand, bitmap []byte, intn int64) int64 {
 		}
 	}
 	panic("unreachable code")
+}
+
+func copytovalue(value, ascii []byte, klen, vlen int64) []byte {
+	if vlen <= klen {
+		copy(value, zeros)
+	} else {
+		copy(value[vlen-klen:vlen], zeros)
+	}
+	copy(value[vlen-int64(len(ascii)):vlen], ascii)
+	return value
 }
 
 func init() {

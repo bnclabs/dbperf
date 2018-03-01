@@ -43,6 +43,7 @@ func perfbubt() error {
 	took := time.Since(now).Round(time.Second)
 	fmt.Printf("Took %v to build %v entries\n", took, n)
 	bt.Close()
+	iter(true /*fin*/)
 
 	index, err := bubt.OpenSnapshot(name, paths, mmap)
 	if err != nil {
