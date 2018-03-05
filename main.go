@@ -15,27 +15,28 @@ import "github.com/bnclabs/gostore/bubt"
 import "github.com/bnclabs/gostore/llrb"
 
 var options struct {
-	db       string
-	cpu      int
-	bogn     string
-	memstore string
-	period   int
-	load     int
-	inserts  int
-	upserts  int
-	deletes  int
-	gets     int
-	ranges   int
-	limit    int
-	keylen   int
-	vallen   int
-	lsm      bool
-	seed     int
-	setas    string
-	delas    string
-	getas    string
-	rngas    string
-	log      string
+	db          string
+	cpu         int
+	bogn        string
+	memstore    string
+	period      int
+	load        int
+	inserts     int
+	upserts     int
+	deletes     int
+	gets        int
+	ranges      int
+	limit       int
+	keylen      int
+	vallen      int
+	lsm         bool
+	seed        int
+	setas       string
+	delas       string
+	getas       string
+	rngas       string
+	memcapacity int
+	log         string
 }
 
 func optparse(args []string) {
@@ -62,6 +63,7 @@ func optparse(args []string) {
 	f.StringVar(&options.delas, "delas", "all", "del|txn|cur|delcur|all")
 	f.StringVar(&options.getas, "getas", "all", "get|txn|view|all")
 	f.StringVar(&options.rngas, "rngas", "all", "tgn|tyn|vgn|vyn|all")
+	f.IntVar(&options.memcapacity, "memcap", 0, "memory cap on llrb/mvcc in MB")
 	f.StringVar(&options.log, "log", "", "llrb,mvcc,bubt,bogn")
 	f.Parse(args)
 

@@ -550,17 +550,21 @@ func bognsettings(seed int) s.Settings {
 	zsizes := []int64{
 		multof4096(4096 + sz), multof4096(8192 + sz), multof4096(12288 + sz),
 	}
+	//ratios := []float64{.5, .33, .25, .20, .16, .125, .1}
+	ratios := []float64{.25}
 
 	rnd := rand.New(rand.NewSource(int64(seed)))
 	setts := bogn.Defaultsettings()
 	setts["memstore"] = options.memstore
 	setts["period"] = int64(options.period)
-	ratio := []float64{.5, .33, .25, .20, .16, .125, .1}[rnd.Intn(10000)%7]
-	setts["ratio"] = ratio
-	setts["bubt.mmap"] = []bool{true, false}[rnd.Intn(10000)%2]
-	setts["bubt.msize"] = msizes[rnd.Intn(10000)%3]
-	setts["bubt.zsize"] = zsizes[rnd.Intn(10000)%3]
-	//setts["llrb.memcapacity"] = 10 * 1024 * 1024 * 1024
+	setts["ratio"] = ratios[rnd.Intn(10000)%len(ratios)]
+	//setts["bubt.mmap"] = []bool{true, false}[rnd.Intn(10000)%2]
+	setts["bubt.mmap"] = false
+	setts["bubt.msize"] = msizes[rnd.Intn(10000)%len(msizes)]
+	setts["bubt.zsize"] = zsizes[rnd.Intn(10000)%len(msizes)]
+	if options.memcapacity > 0 {
+		setts["llrb.memcapacity"] = options.memcapacity * 1024 * 1024
+	}
 	setts["llrb.allocator"] = "flist"
 	setts["llrb.snapshottick"] = []int64{4, 8, 16, 32}[rnd.Intn(10000)%4]
 	switch options.bogn {
