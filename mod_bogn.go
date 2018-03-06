@@ -16,12 +16,13 @@ import s "github.com/bnclabs/gosettings"
 //import humanize "github.com/dustin/go-humanize" TODO
 
 func perfbogn() error {
+	name := "dbperf"
 	setts := bognsettings(options.seed)
 	logpath, diskstore := setts.String("logpath"), setts.String("diskstore")
 	diskpaths := setts.Strings("bubt.diskpaths")
-	bogn.PurgeIndex("dbperf", logpath, diskstore, diskpaths)
+	bogn.PurgeIndex(name, logpath, diskstore, diskpaths)
 
-	index, err := bogn.New("dbperf", setts)
+	index, err := bogn.New(name, setts)
 	if err != nil {
 		panic(err)
 	}
@@ -63,9 +64,12 @@ func perfbogn() error {
 	index.Validate()
 
 	fmt.Printf("Number of ROLLBACKS: %v\n", rollbacks)
+
 	//TODO:
 	//fmsg := "BOGN total indexed %v items, footprint %v\n"
 	//fmt.Printf(fmsg, index.Count(), humanize.Bytes(uint64(index.Footprint())))
+
+	bogn.CompactIndex(name, diskstore, diskpaths, true /*merge*/)
 
 	index.Close()
 	index.Destroy()
@@ -550,16 +554,14 @@ func bognsettings(seed int) s.Settings {
 	zsizes := []int64{
 		multof4096(4096 + sz), multof4096(8192 + sz), multof4096(12288 + sz),
 	}
-	//ratios := []float64{.5, .33, .25, .20, .16, .125, .1}
-	ratios := []float64{.25}
+	flushratios := []float64{.5, .33, .25, .20, .16, .125, .1}
 
 	rnd := rand.New(rand.NewSource(int64(seed)))
 	setts := bogn.Defaultsettings()
 	setts["memstore"] = options.memstore
-	setts["period"] = int64(options.period)
-	setts["ratio"] = ratios[rnd.Intn(10000)%len(ratios)]
-	//setts["bubt.mmap"] = []bool{true, false}[rnd.Intn(10000)%2]
-	setts["bubt.mmap"] = false
+	setts["flushratio"] = flushratios[rnd.Intn(10000)%len(flushratios)]
+	setts["flushperiod"] = int64(options.period)
+	setts["bubt.mmap"] = []bool{true, false}[rnd.Intn(10000)%2]
 	setts["bubt.msize"] = msizes[rnd.Intn(10000)%len(msizes)]
 	setts["bubt.zsize"] = zsizes[rnd.Intn(10000)%len(msizes)]
 	if options.memcapacity > 0 {
@@ -587,9 +589,11 @@ func bognsettings(seed int) s.Settings {
 	}
 
 	a, b, c := setts["durable"], setts["dgm"], setts["workingset"]
-	fmt.Printf("durable:%v dgm:%v workingset:%v\n", a, b, c)
-	a, b = setts["ratio"], setts["period"]
-	fmt.Printf("ratio:%v period:%v lsm:%v\n", a, b, options.lsm)
+	fmt.Printf("durable:%v dgm:%v workingset:%v lsm:%v\n", a, b, c, options.lsm)
+	a, b = setts["flushratio"], setts["flushperiod"]
+	fmt.Printf("flushratio:%v flushperiod:%v\n", a, b)
+	a, b = setts["compactratio"], setts["compactperiod"]
+	fmt.Printf("compactratio:%v compactperiod:%v\n", a, b)
 	a = setts["llrb.snapshottick"]
 	fmt.Printf("llrb snapshottick:%v\n", a)
 	a, b = setts["bubt.diskpaths"], setts["bubt.msize"]
