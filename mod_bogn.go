@@ -69,10 +69,9 @@ func perfbogn() error {
 	//fmsg := "BOGN total indexed %v items, footprint %v\n"
 	//fmt.Printf(fmsg, index.Count(), humanize.Bytes(uint64(index.Footprint())))
 
-	bogn.CompactIndex(name, diskstore, diskpaths, true /*merge*/)
-
 	index.Close()
-	index.Destroy()
+
+	bogn.CompactIndex(name, diskstore, diskpaths, true /*merge*/)
 	return nil
 }
 
@@ -546,24 +545,27 @@ func bognRange4(index *bogn.Bogn, key, value []byte) (n int64) {
 }
 
 func bognsettings(seed int) s.Settings {
-	sz := int64(options.keylen)
-	msizes := []int64{
-		multof4096(4096 + sz), multof4096(8192 + sz), multof4096(12288 + sz),
-	}
-	sz = int64(options.keylen + options.vallen)
-	zsizes := []int64{
-		multof4096(4096 + sz), multof4096(8192 + sz), multof4096(12288 + sz),
-	}
-	flushratios := []float64{.5, .33, .25, .20, .16, .125, .1}
+	//sz := int64(options.keylen)
+	//msizes := []int64{
+	//	multof4096(4096 + sz), multof4096(8192 + sz), multof4096(12288 + sz),
+	//}
+	//sz = int64(options.keylen + options.vallen)
+	//zsizes := []int64{
+	//	multof4096(4096 + sz), multof4096(8192 + sz), multof4096(12288 + sz),
+	//}
+	//flushratios := []float64{.5, .33, .25, .20, .16, .125, .1}
 
 	rnd := rand.New(rand.NewSource(int64(seed)))
 	setts := bogn.Defaultsettings()
 	setts["memstore"] = options.memstore
-	setts["flushratio"] = flushratios[rnd.Intn(10000)%len(flushratios)]
+	//setts["flushratio"] = flushratios[rnd.Intn(10000)%len(flushratios)]
+	setts["flushratio"] = 0.25
 	setts["flushperiod"] = int64(options.period)
 	setts["bubt.mmap"] = []bool{true, false}[rnd.Intn(10000)%2]
-	setts["bubt.msize"] = msizes[rnd.Intn(10000)%len(msizes)]
-	setts["bubt.zsize"] = zsizes[rnd.Intn(10000)%len(msizes)]
+	//setts["bubt.msize"] = msizes[rnd.Intn(10000)%len(msizes)]
+	//setts["bubt.zsize"] = zsizes[rnd.Intn(10000)%len(msizes)]
+	setts["bubt.msize"] = 4096
+	setts["bubt.zsize"] = 4096
 	if options.memcapacity > 0 {
 		setts["llrb.memcapacity"] = options.memcapacity * 1024 * 1024
 	}

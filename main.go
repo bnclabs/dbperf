@@ -48,7 +48,7 @@ func optparse(args []string) {
 	f.StringVar(&options.bogn, "bogn", "memonly", "memonly|durable|dgm|workset")
 	f.StringVar(&options.memstore, "memstore", "mvcc", "llrb|mvcc for bogn")
 	f.IntVar(&options.period, "period", 10, "bogn flush period, in seconds")
-	f.IntVar(&options.load, "load", 1000000, "items to initially load")
+	f.IntVar(&options.load, "load", 0, "items to initially load")
 	f.IntVar(&options.inserts, "inserts", 0, "new items to create")
 	f.IntVar(&options.upserts, "upserts", 0, "items to update")
 	f.IntVar(&options.deletes, "deletes", 0, "items to delete")
