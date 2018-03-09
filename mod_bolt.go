@@ -138,9 +138,13 @@ func boltWriter(
 
 	var key, value []byte
 	var x, y, z int64
-	gcreate := Generatecreate(klen, vlen, loadn, seedc)
-	gupdate := Generateupdate(klen, vlen, loadn, seedl, seedc, -1)
-	gdelete := Generatedelete(klen, vlen, loadn, seedl, seedc, delmod)
+	gcreate := Generatecreate(klen, vlen, loadn, int64(options.inserts), seedc)
+	gupdate := Generateupdate(
+		klen, vlen, loadn, int64(options.inserts), seedl, seedc, -1,
+	)
+	gdelete := Generatedelete(
+		klen, vlen, loadn, int64(options.inserts), seedl, seedc, delmod,
+	)
 
 	bname := []byte(bucketname)
 	put := func(tx *bolt.Tx) (err error) {
@@ -244,7 +248,9 @@ func boltGetter(
 	time.Sleep(time.Duration(rand.Intn(100)+300) * time.Millisecond)
 
 	var key []byte
-	g := Generateread(int64(options.keylen), loadn, seedl, seedc)
+	g := Generateread(
+		int64(options.keylen), loadn, int64(options.inserts), seedl, seedc,
+	)
 
 	bname := []byte(bucketname)
 	get := func(tx *bolt.Tx) (err error) {
@@ -292,7 +298,9 @@ func boltRanger(
 	time.Sleep(time.Duration(rand.Intn(100)+300) * time.Millisecond)
 
 	var key []byte
-	g := Generateread(int64(options.keylen), loadn, seedl, seedc)
+	g := Generateread(
+		int64(options.keylen), loadn, int64(options.inserts), seedl, seedc,
+	)
 
 	bname := []byte(bucketname)
 	ranger := func(tx *bolt.Tx) error {

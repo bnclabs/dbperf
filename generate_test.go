@@ -92,7 +92,7 @@ func TestGenerateCRUD(t *testing.T) {
 	// Create load
 	klen, vlen = int64(32), int64(32)
 	createn, seedc := int64(2000000), int64(200)
-	g = Generatecreate(klen, vlen, loadn, seedc)
+	g = Generatecreate(klen, vlen, loadn, createn, seedc)
 	key, value := g(nil, nil)
 	for i := int64(0); i < createn; i++ {
 		keynum, err := strconv.ParseInt(Bytes2str(key), 10, 64)
@@ -115,7 +115,7 @@ func TestGenerateCRUD(t *testing.T) {
 	readl, readc := map[int64]bool{}, map[int64]bool{}
 	// read load
 	klen, readn := int64(32), int64(2000000)
-	gr := Generateread(klen, loadn, seedl, seedc)
+	gr := Generateread(klen, loadn, createn, seedl, seedc)
 	key = gr(nil, int64(len(createm)))
 	for i := int64(0); i < readn; i++ {
 		keynum, err := strconv.ParseInt(Bytes2str(key), 10, 64)
@@ -132,14 +132,14 @@ func TestGenerateCRUD(t *testing.T) {
 	}
 	if len(readl) != 850300 {
 		t.Fatalf("%v != %v", len(readl), 850300)
-	} else if len(readc) != 500000 {
-		t.Fatalf("%v != %v", len(readc), 500000)
+	} else if len(readc) != 479726 {
+		t.Fatalf("%v != %v", len(readc), 479726)
 	}
 
 	updatel, updatec := map[int64]bool{}, map[int64]bool{}
 	// update load
 	klen, vlen, updaten := int64(32), int64(32), int64(2000000)
-	g = Generateupdate(klen, vlen, loadn, seedl, seedc, -1)
+	g = Generateupdate(klen, vlen, loadn, createn, seedl, seedc, -1)
 	key, value = g(nil, nil)
 	for i := int64(0); i < updaten; i++ {
 		keynum, err := strconv.ParseInt(Bytes2str(key), 10, 64)
@@ -156,14 +156,14 @@ func TestGenerateCRUD(t *testing.T) {
 	}
 	if len(updatel) != 850300 {
 		t.Fatalf("%v != %v", len(updatel), 850300)
-	} else if len(updatec) != 333333 {
-		t.Fatalf("%v != %v", len(updatec), 333333)
+	} else if len(updatec) != 324297 {
+		t.Fatalf("%v != %v", len(updatec), 324297)
 	}
 
 	deletel, deletec := map[int64]bool{}, map[int64]bool{}
 	// delete load
 	klen, deleten := int64(32), int64(1000000)
-	gd := Generatedelete(klen, vlen, loadn, seedl, seedc, delmod)
+	gd := Generatedelete(klen, vlen, loadn, createn, seedl, seedc, delmod)
 	key, value = gd(nil, nil)
 	for i := int64(0); i < deleten; i++ {
 		keynum, err := strconv.ParseInt(Bytes2str(key), 10, 64)
@@ -180,8 +180,8 @@ func TestGenerateCRUD(t *testing.T) {
 	}
 	if len(deletel) != 424961 {
 		t.Fatalf("%v != %v", len(deletel), 424961)
-	} else if len(deletec) != 166235 {
-		t.Fatalf("%v != %v", len(deletec), 166235)
+	} else if len(deletec) != 162202 {
+		t.Fatalf("%v != %v", len(deletec), 162202)
 	}
 }
 
@@ -204,8 +204,8 @@ func BenchmarkGenerateloadr(b *testing.B) {
 }
 
 func BenchmarkGeneratecreate(b *testing.B) {
-	klen, vlen, n, seedc := int64(32), int64(32), int64(1*1000*1000), int64(100)
-	g := Generatecreate(klen, vlen, n, seedc)
+	klen, vlen, seedc := int64(32), int64(32), int64(100)
+	g := Generatecreate(klen, vlen, 0, int64(b.N), seedc)
 	key, value := g(nil, nil)
 	for i := 0; i < b.N; i++ {
 		key, value = g(key, value)
@@ -215,7 +215,7 @@ func BenchmarkGeneratecreate(b *testing.B) {
 func BenchmarkGenerateupdate(b *testing.B) {
 	klen, vlen, n := int64(32), int64(32), int64(1*1000*1000)
 	seedl, seedc := int64(100), int64(200)
-	g := Generateupdate(klen, vlen, n, seedl, seedc, -1)
+	g := Generateupdate(klen, vlen, n, int64(b.N), seedl, seedc, -1)
 	key, value := g(nil, nil)
 	for i := 0; i < b.N; i++ {
 		key, value = g(key, value)
@@ -225,7 +225,7 @@ func BenchmarkGenerateupdate(b *testing.B) {
 func BenchmarkGenerateread(b *testing.B) {
 	klen, n := int64(32), int64(1*1000*1000)
 	seedl, seedc := int64(100), int64(200)
-	g := Generateread(klen, n, seedl, seedc)
+	g := Generateread(klen, n, int64(b.N), seedl, seedc)
 	key := g(nil, 0)
 	for i := 0; i < b.N; i++ {
 		g(key, 0)
@@ -235,7 +235,7 @@ func BenchmarkGenerateread(b *testing.B) {
 func BenchmarkGeneratedelete(b *testing.B) {
 	klen, n := int64(32), int64(1*1000*1000)
 	seedl, seedc := int64(100), int64(200)
-	g := Generatedelete(klen, klen, n, seedl, seedc, delmod)
+	g := Generatedelete(klen, klen, n, int64(b.N), seedl, seedc, delmod)
 	key, value := g(nil, nil)
 	for i := 0; i < b.N; i++ {
 		g(key, value)

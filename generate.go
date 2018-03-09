@@ -66,16 +66,19 @@ func Generateloadr(
 
 // Generate keys greater than loadn, always return unique keys.
 func Generatecreate(
-	klen, vlen, loadn, seed int64) func(k, v []byte) ([]byte, []byte) {
+	klen, vlen, loadn, insertn,
+	seed int64) func(k, v []byte) ([]byte, []byte) {
 
 	var textint [1024]byte
 
 	loadn = int64(loadn * rndscale)
-	intn := int64(9223372036854775807) - loadn
+	intn := (insertn * rndscale)
 	rnd := rand.New(rand.NewSource(seed))
+	bitmap := make([]byte, ((intn / 8) + 1))
 
 	return func(key, value []byte) ([]byte, []byte) {
-		keynum := int64(rnd.Intn(int(intn))) + loadn
+		keynum := makeuniquekey(rnd, bitmap, intn)
+		keynum += loadn
 		ascii := strconv.AppendInt(textint[:0], int64(keynum), 10)
 		// create key
 		key = Fixbuffer(key, int64(klen))
@@ -91,14 +94,14 @@ func Generatecreate(
 }
 
 func Generateupdate(
-	klen, vlen, loadn,
+	klen, vlen, loadn, insertn,
 	seedl, seedc, mod int64) func(k, v []byte) ([]byte, []byte) {
 
 	var textint [1024]byte
 	var getkey func()
 
 	loadn1 := loadn * rndscale
-	intn := int64(9223372036854775807) - loadn1
+	intn := insertn * rndscale
 	rndl := rand.New(rand.NewSource(seedl))
 	rndc := rand.New(rand.NewSource(seedc))
 	keynum, lcount := int64(0), int64(0)
@@ -136,12 +139,13 @@ func Generateupdate(
 	}
 }
 
-func Generateread(klen, loadn, seedl, seedc int64) func([]byte, int64) []byte {
+func Generateread(
+	klen, loadn, insertn, seedl, seedc int64) func([]byte, int64) []byte {
 	var textint [1024]byte
 	var getkey func(int64)
 
 	loadn1 := loadn * rndscale
-	intn := int64(9223372036854775807) - loadn1
+	intn := insertn * rndscale
 	rndl := rand.New(rand.NewSource(seedl))
 	rndc := rand.New(rand.NewSource(seedc))
 	keynum, lcount := int64(0), int64(0)
@@ -196,13 +200,14 @@ func Generatereadseq(klen, loadn, seedl int64) func([]byte, int64) []byte {
 
 func Generatedelete(
 	klen, vlen,
-	loadn, seedl, seedc, mod int64) func(k, v []byte) ([]byte, []byte) {
+	loadn, insertn,
+	seedl, seedc, mod int64) func(k, v []byte) ([]byte, []byte) {
 
 	var textint [1024]byte
 	var getkey func()
 
 	loadn1 := loadn * rndscale
-	intn := int64(9223372036854775807) - loadn1
+	intn := insertn * rndscale
 	rndl := rand.New(rand.NewSource(seedl))
 	rndc := rand.New(rand.NewSource(seedc))
 	keynum, lcount := int64(0), int64(0)

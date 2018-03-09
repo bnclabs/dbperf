@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 
 ARGS="-db bogn -bogn dgm -klen 32 -vlen 200 -memcap 4096 -log bogn"
-UPSERTS="-inserts 30000000 -setas set"
+UPSERTS="-inserts 1000000 -setas set"
 
 rm -rf *.svg dbperf; go build
 

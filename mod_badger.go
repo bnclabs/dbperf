@@ -140,9 +140,13 @@ func badgerWriter(
 	fin chan struct{}, wg *sync.WaitGroup) {
 
 	var x, y, z int64
-	gcreate := Generatecreate(klen, vlen, loadn, seedc)
-	gupdate := Generateupdate(klen, vlen, loadn, seedl, seedc, -1)
-	gdelete := Generatedelete(klen, vlen, loadn, seedl, seedc, delmod)
+	gcreate := Generatecreate(klen, vlen, loadn, int64(options.inserts), seedc)
+	gupdate := Generateupdate(
+		klen, vlen, loadn, int64(options.inserts), seedl, seedc, -1,
+	)
+	gdelete := Generatedelete(
+		klen, vlen, loadn, int64(options.inserts), seedl, seedc, delmod,
+	)
 
 	cmds := make([]*badgerop, 500)
 	for off := range cmds {
@@ -254,7 +258,9 @@ func badgerGetter(
 	time.Sleep(time.Duration(rand.Intn(100)+300) * time.Millisecond)
 
 	var key []byte
-	g := Generateread(int64(options.keylen), loadn, seedl, seedc)
+	g := Generateread(
+		int64(options.keylen), loadn, int64(options.inserts), seedl, seedc,
+	)
 
 	get := func(txn *badger.Txn) (err error) {
 		if _, err = txn.Get(key); err != nil {
@@ -299,7 +305,9 @@ func badgerRanger(
 	time.Sleep(time.Duration(rand.Intn(100)+300) * time.Millisecond)
 
 	var key []byte
-	g := Generateread(int64(options.keylen), loadn, seedl, seedc)
+	g := Generateread(
+		int64(options.keylen), loadn, int64(options.inserts), seedl, seedc,
+	)
 
 	ranger := func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions

@@ -204,9 +204,13 @@ func lmdbWriter(
 	var x, y, z int64
 	loadn := int64(options.load)
 	klen, vlen := int64(options.keylen), int64(options.vallen)
-	gcreate := Generatecreate(klen, vlen, loadn, seedc)
-	gupdate := Generateupdate(klen, vlen, loadn, seedl, seedc, -1)
-	gdelete := Generatedelete(klen, vlen, loadn, seedl, seedc, delmod)
+	gcreate := Generatecreate(klen, vlen, loadn, int64(options.inserts), seedc)
+	gupdate := Generateupdate(
+		klen, vlen, loadn, int64(options.inserts), seedl, seedc, -1,
+	)
+	gdelete := Generatedelete(
+		klen, vlen, loadn, int64(options.inserts), seedl, seedc, delmod,
+	)
 
 	put := func(txn *lmdb.Txn) (err error) {
 		if err := txn.Put(dbi, key, value, 0); err != nil {
@@ -312,7 +316,9 @@ func lmdbGetter(
 	time.Sleep(time.Duration(rand.Intn(100)+300) * time.Millisecond)
 
 	var key []byte
-	g := Generateread(int64(options.keylen), loadn, seedl, seedc)
+	g := Generateread(
+		int64(options.keylen), loadn, int64(options.inserts), seedl, seedc,
+	)
 
 	get := func(txn *lmdb.Txn) (err error) {
 		ngets++
@@ -361,7 +367,9 @@ func lmdbRanger(
 	time.Sleep(time.Duration(rand.Intn(100)+300) * time.Millisecond)
 
 	var key []byte
-	g := Generateread(int64(options.keylen), loadn, seedl, seedc)
+	g := Generateread(
+		int64(options.keylen), loadn, int64(options.inserts), seedl, seedc,
+	)
 
 	ranger := func(txn *lmdb.Txn) error {
 		cur, err := txn.OpenCursor(dbi)

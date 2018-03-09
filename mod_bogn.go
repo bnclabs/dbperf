@@ -115,9 +115,13 @@ func bognWriter(
 	var x, y, z int64
 
 	klen, vlen := int64(options.keylen), int64(options.vallen)
-	gcreate := Generatecreate(klen, vlen, n, seedc)
-	gupdate := Generateupdate(klen, vlen, n, seedl, seedc, -1)
-	gdelete := Generatedelete(klen, vlen, n, seedl, seedc, delmod)
+	gcreate := Generatecreate(klen, vlen, n, int64(options.inserts), seedc)
+	gupdate := Generateupdate(
+		klen, vlen, n, int64(options.inserts), seedl, seedc, -1,
+	)
+	gdelete := Generatedelete(
+		klen, vlen, n, int64(options.inserts), seedl, seedc, delmod,
+	)
 
 	value, oldvalue := make([]byte, vlen), make([]byte, vlen)
 	if options.vallen <= 0 {
@@ -128,6 +132,7 @@ func bognWriter(
 	insn, upsn, deln := options.inserts, options.upserts, options.deletes
 
 	as, bs := bognsets[options.setas], bogndels[options.delas]
+	data := map[string]bool{}
 	for totalops := insn + upsn + deln; totalops > 0; {
 		bognset := as[rnd.Intn(len(as))]
 		bogndel := bs[rnd.Intn(len(bs))]
@@ -136,7 +141,7 @@ func bognWriter(
 		switch {
 		case idx < insn:
 			key, value = gcreate(key, value)
-			//fmt.Printf("create %s %s\n", key, value)
+			data[string(key)] = true
 			bognset(index, key, value, oldvalue)
 			atomic.AddInt64(&numentries, 1)
 			x = atomic.AddInt64(&ninserts, 1)
@@ -144,14 +149,14 @@ func bognWriter(
 
 		case idx < (insn + upsn):
 			key, value = gupdate(key, value)
-			//fmt.Printf("update %s %s\n", key, value)
+			fmt.Printf("update %s %s\n", key, value)
 			bognset(index, key, value, oldvalue)
 			y = atomic.AddInt64(&nupserts, 1)
 			upsn--
 
 		case idx < (insn + upsn + deln):
 			key, value = gdelete(key, value)
-			//fmt.Printf("delete %s %s\n", key, value)
+			fmt.Printf("delete %s %s\n", key, value)
 			bogndel(index, key, value, options.lsm /*lsm*/)
 			atomic.AddInt64(&numentries, -1)
 			z = atomic.AddInt64(&ndeletes, 1)
@@ -170,6 +175,7 @@ func bognWriter(
 			now = time.Now()
 		}
 	}
+	fmt.Println("total", len(data))
 	took := time.Since(epoch).Round(time.Second)
 	wg.Done()
 	<-fin
@@ -319,7 +325,9 @@ func bognGetter(
 
 	var ngets, nmisses int64
 	var key []byte
-	g := Generateread(int64(options.keylen), n, seedl, seedc)
+	g := Generateread(
+		int64(options.keylen), n, int64(options.inserts), seedl, seedc,
+	)
 
 	rnd := rand.New(rand.NewSource(int64(seedl)))
 	value := make([]byte, options.vallen)
@@ -420,7 +428,9 @@ func bognRanger(
 
 	var nranges int64
 	var key []byte
-	g := Generateread(int64(options.keylen), n, seedl, seedc)
+	g := Generateread(
+		int64(options.keylen), n, int64(options.inserts), seedl, seedc,
+	)
 
 	rnd := rand.New(rand.NewSource(int64(seedl)))
 	value := make([]byte, options.vallen)
@@ -560,7 +570,7 @@ func bognsettings(seed int) s.Settings {
 	setts["memstore"] = options.memstore
 	//setts["flushratio"] = flushratios[rnd.Intn(10000)%len(flushratios)]
 	setts["flushratio"] = 0.25
-	setts["flushperiod"] = int64(options.period)
+	setts["flushperiod"] = 5 // int64(options.period)
 	setts["bubt.mmap"] = []bool{true, false}[rnd.Intn(10000)%2]
 	//setts["bubt.msize"] = msizes[rnd.Intn(10000)%len(msizes)]
 	//setts["bubt.zsize"] = zsizes[rnd.Intn(10000)%len(msizes)]

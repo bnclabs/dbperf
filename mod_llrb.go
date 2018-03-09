@@ -93,9 +93,13 @@ func llrbWriter(
 	var x, y, z int64
 
 	klen, vlen := int64(options.keylen), int64(options.vallen)
-	gcreate := Generatecreate(klen, vlen, n, seedc)
-	gupdate := Generateupdate(klen, vlen, n, seedl, seedc, -1)
-	gdelete := Generatedelete(klen, vlen, n, seedl, seedc, delmod)
+	gcreate := Generatecreate(klen, vlen, n, int64(options.inserts), seedc)
+	gupdate := Generateupdate(
+		klen, vlen, n, int64(options.inserts), seedl, seedc, -1,
+	)
+	gdelete := Generatedelete(
+		klen, vlen, n, int64(options.inserts), seedl, seedc, delmod,
+	)
 
 	value, oldvalue := make([]byte, vlen), make([]byte, vlen)
 	if options.vallen <= 0 {
@@ -293,7 +297,9 @@ func llrbGetter(
 
 	var ngets, nmisses int64
 	var key []byte
-	g := Generateread(int64(options.keylen), n, seedl, seedc)
+	g := Generateread(
+		int64(options.keylen), n, int64(options.inserts), seedl, seedc,
+	)
 
 	rnd := rand.New(rand.NewSource(seedl))
 	epoch, now, markercount := time.Now(), time.Now(), int64(10000000)
@@ -396,7 +402,9 @@ func llrbRanger(
 
 	var nranges int64
 	var key []byte
-	g := Generateread(int64(options.keylen), n, seedl, seedc)
+	g := Generateread(
+		int64(options.keylen), n, int64(options.inserts), seedl, seedc,
+	)
 
 	rnd := rand.New(rand.NewSource(seedl))
 	epoch, value := time.Now(), make([]byte, options.vallen)
