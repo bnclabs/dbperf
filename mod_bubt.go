@@ -30,7 +30,7 @@ func perfbubt() error {
 		panic(err)
 	}
 
-	klen, vlen := int64(options.keylen), int64(options.keylen)
+	klen, vlen := int64(options.keylen), int64(options.vallen)
 	seed, n := int64(options.seed), int64(options.load)
 	iter := makeiterator(klen, vlen, n, delmod)
 	md := generatemeta(seed)
@@ -77,7 +77,7 @@ func perfbubt() error {
 	time.Sleep(1 * time.Second)
 
 	index.Log()
-	index.Validate()
+	//index.Validate()
 
 	fmsg = "BUBT total indexed %v items, footprint %v\n"
 	fmt.Printf(fmsg, index.Count(), index.Footprint())
@@ -260,8 +260,8 @@ func bubtRange2(index *bubt.Snapshot, key, value []byte) (n int64) {
 
 func makeiterator(klen, vlen, entries, mod int64) api.Iterator {
 	g := Generateloads(klen, vlen, entries)
-	key, seqno := make([]byte, options.keylen), uint64(0)
-	value := make([]byte, options.vallen)
+	key, seqno := make([]byte, klen), uint64(0)
+	value := make([]byte, vlen)
 
 	return func(fin bool) ([]byte, []byte, uint64, bool, error) {
 		key, value = g(key, value)
