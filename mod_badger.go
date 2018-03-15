@@ -30,7 +30,7 @@ func perfbadger() error {
 	defer db.Close()
 
 	seedl, seedc := int64(options.seed), int64(options.seed)+100
-	klen, vlen := int64(options.keylen), int64(options.vallen)+100
+	klen, vlen := int64(options.keylen), int64(options.vallen)
 	loadn := int64(options.load)
 	fmt.Printf("Seed for load: %v, for ops: %v\n", seedl, seedc)
 	if err = badgerload(db, klen, vlen, loadn, seedl); err != nil {
@@ -73,6 +73,7 @@ func perfbadger() error {
 func initbadger(pathdir string) (db *badger.DB, err error) {
 	opts := badger.DefaultOptions
 	opts.Dir, opts.ValueDir = pathdir, pathdir
+	opts.SyncWrites = false
 	db, err = badger.Open(opts)
 	if err != nil {
 		fmt.Printf("badger.Open(): %v\n", err)
@@ -91,9 +92,12 @@ func badgerload(db *badger.DB, klen, vlen, loadn, seedl int64) error {
 	markercount, count := int64(1000000), int64(0)
 	g := Generateloadr(klen, vlen, int64(options.load), int64(seedl))
 
-	cmds := make([]*badgerop, 10000)
+	cmds := make([]*badgerop, 1)
 	for off := range cmds {
-		cmds[off] = &badgerop{}
+		cmds[off] = &badgerop{
+			key:   make([]byte, 0, klen),
+			value: make([]byte, 0, vlen),
+		}
 	}
 	populate := func(txn *badger.Txn) (err error) {
 		for _, cmd := range cmds {
