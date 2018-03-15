@@ -58,7 +58,6 @@ func perfbogn() error {
 	}
 	wg.Wait()
 	close(fin)
-	time.Sleep(1 * time.Second)
 
 	index.Log()
 	index.Validate()
