@@ -5,27 +5,22 @@ import "os"
 import "fmt"
 import "sync"
 import "time"
-import "bytes"
 import "strconv"
 import "path/filepath"
 import "math/rand"
 
 import "github.com/bnclabs/gostore/api"
 import "github.com/bnclabs/gostore/bubt"
+import humanize "github.com/dustin/go-humanize"
 
 func perfbubt() error {
-	path, paths := os.TempDir(), []string{}
-	for i, base := range []string{"1", "2", "3"} {
-		paths = append(paths, filepath.Join(path, base))
-		fmt.Printf("Path %v %q\n", i, filepath.Join(path, base))
-	}
+	paths := bubtpaths(options.npaths)
 
 	name := "dbperf"
-	rnd := rand.New(rand.NewSource(int64(options.seed)))
-	msize := int64(4096 * (rnd.Intn(5) + 1))
-	zsize := int64(4096 * (rnd.Intn(5) + 1))
-	mmap := []bool{true, false}[rnd.Intn(10000)%2]
-	bt, err := bubt.NewBubt(name, paths, msize, zsize)
+	//rnd := rand.New(rand.NewSource(int64(options.seed)))
+	msize, zsize := int64(options.msize), int64(options.zsize)
+	vsize, mmap := int64(options.vsize), options.mmap
+	bt, err := bubt.NewBubt(name, paths, msize, zsize, vsize)
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +36,6 @@ func perfbubt() error {
 	now := time.Now()
 	bt.Build(iter, md)
 	took := time.Since(now).Round(time.Second)
-	fmt.Printf("Took %v to build %v entries\n", took, n)
 	bt.Close()
 	iter(true /*fin*/)
 
@@ -51,6 +45,9 @@ func perfbubt() error {
 	}
 	defer index.Destroy()
 	defer index.Close()
+
+	fmsg = "Took %v to build %v entries with footprint %v\n"
+	fmt.Printf(fmsg, took, n, humanize.Bytes(uint64(index.Footprint())))
 
 	if index.Count() != n {
 		panic(fmt.Errorf("expected %v, got %v", n, index.Count()))
@@ -149,19 +146,6 @@ func bubtGet2(
 
 	view := index.View(0x1235)
 	value, _, del, ok := view.Get(key, value)
-	if ok == true {
-		cur, err := view.OpenCursor(key)
-		if err != nil {
-			panic(err)
-		}
-		if ckey, cdel := cur.Key(); cdel != del {
-			panic(fmt.Errorf("expected %v, got %v", del, cdel))
-		} else if bytes.Compare(ckey, key) != 0 {
-			panic(fmt.Errorf("expected %q, got %q", key, ckey))
-		} else if cvalue := cur.Value(); bytes.Compare(cvalue, value) != 0 {
-			panic(fmt.Errorf("expected %q, got %q", value, cvalue))
-		}
-	}
 	view.Abort()
 	return value, 0, del, ok
 }
@@ -212,18 +196,11 @@ func bubtRange1(index *bubt.Snapshot, key, value []byte) (n int64) {
 		panic(err)
 	}
 	for i := 0; i < 100; i++ {
-		key, value, del, err := cur.GetNext()
+		_, _, _, err := cur.GetNext()
 		if err == io.EOF {
 			continue
 		} else if err != nil {
 			panic(err)
-		}
-		if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x)%2) != delmod && del == true {
-			panic("unexpected delete")
-		} else if del == false && bytes.Compare(key, value) != 0 {
-			panic(fmt.Errorf("expected %q, got %q", key, value))
 		}
 		n++
 	}
@@ -239,18 +216,11 @@ func bubtRange2(index *bubt.Snapshot, key, value []byte) (n int64) {
 		panic(err)
 	}
 	for i := 0; i < 100; i++ {
-		key, value, _, del, err := cur.YNext(false /*fin*/)
+		_, _, _, _, err := cur.YNext(false /*fin*/)
 		if err == io.EOF {
 			continue
 		} else if err != nil {
 			panic(err)
-		}
-		if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x)%2) != delmod && del == true {
-			panic("unexpected delete")
-		} else if del == false && bytes.Compare(key, value) != 0 {
-			panic(fmt.Errorf("expected %q, got %q", key, value))
 		}
 		n++
 	}
@@ -286,4 +256,14 @@ func generatemeta(seed int64) []byte {
 		md[i] = byte(97 + rnd.Intn(26))
 	}
 	return md
+}
+
+func bubtpaths(npaths int) []string {
+	path, paths := os.TempDir(), []string{}
+	for i := 0; i < npaths; i++ {
+		base := fmt.Sprintf("%v", i+1)
+		paths = append(paths, filepath.Join(path, base))
+		fmt.Printf("Path %v %q\n", i+1, filepath.Join(path, base))
+	}
+	return paths
 }

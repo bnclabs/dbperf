@@ -36,6 +36,11 @@ var options struct {
 	getas       string
 	rngas       string
 	memcapacity int
+	npaths      int
+	msize       int
+	zsize       int
+	vsize       int
+	mmap        bool
 	log         string
 }
 
@@ -64,6 +69,11 @@ func optparse(args []string) {
 	f.StringVar(&options.getas, "getas", "all", "get|txn|view|all")
 	f.StringVar(&options.rngas, "rngas", "all", "tgn|tyn|vgn|vyn|all")
 	f.IntVar(&options.memcapacity, "memcap", 0, "memory cap on llrb/mvcc in MB")
+	f.IntVar(&options.npaths, "npaths", 1, "number of directory paths for bubt")
+	f.IntVar(&options.msize, "msize", 4096, "m-block size for bubt")
+	f.IntVar(&options.zsize, "zsize", 4096, "z-block size for bubt")
+	f.IntVar(&options.vsize, "vsize", 4096, "v-block size for bubt")
+	f.BoolVar(&options.mmap, "mmap", false, "enable mmap for z-blocks")
 	f.StringVar(&options.log, "log", "", "llrb,mvcc,bubt,bogn")
 	f.Parse(args)
 
