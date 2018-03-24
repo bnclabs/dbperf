@@ -1,13 +1,24 @@
 #! /usr/bin/env bash
 
+rm dbperf; go build
+
+echo "########################################################"
+ARGS="-klen 22 -vlen 128"
+LOAD="-load 10000000 -lsm"
+echo "./dbperf -db mvcc $ARGS $LOAD"
+./dbperf -db mvcc $ARGS $LOAD
+go tool pprof -svg dbperf dbperf.pprof  > pprof.svg
+go tool pprof -alloc_space -svg dbperf dbperf.mprof  > alloc_space.svg
+echo
+
+echo "########################################################"
+ARGS="-klen 22 -vlen 128"
 LOAD="-load 1000000 -lsm"
 UPSERTS="-inserts 1000000 -upserts 1000000 -setas set"
 DELETES="-deletes 1000000 -delas del"
 READS="-gets 10000000 -getas get -ranges 10000000 -rngas tgn"
-
-rm dbperf; go build
-
-echo "./dbperf -db mvcc -klen 32 -vlen 32 $LOAD $UPSERTS $DELETES $READS"
-./dbperf -db mvcc -klen 32 -vlen 32 $LOAD $UPSERTS $DELETES $READS
+echo "./dbperf -db mvcc $ARGS $LOAD $UPSERTS $DELETES $READS"
+./dbperf -db mvcc $ARGS $LOAD $UPSERTS $DELETES $READS
 go tool pprof -svg dbperf dbperf.pprof  > pprof.svg
 go tool pprof -alloc_space -svg dbperf dbperf.mprof  > alloc_space.svg
+echo

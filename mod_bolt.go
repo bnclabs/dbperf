@@ -31,7 +31,7 @@ func perfbolt() error {
 	klen, vlen := int64(options.keylen), int64(options.vallen)+100
 	loadn := int64(options.load)
 	fmt.Printf("Seed for load: %v, for ops: %v\n", seedl, seedc)
-	if err = boldload(db, klen, vlen, loadn, seedl); err != nil {
+	if err = boltload(db, klen, vlen, loadn, seedl); err != nil {
 		return err
 	}
 
@@ -90,7 +90,7 @@ func initbolt(path string) (db *bolt.DB, err error) {
 	return db, nil
 }
 
-func boldload(db *bolt.DB, klen, vlen, loadn, seedl int64) error {
+func boltload(db *bolt.DB, klen, vlen, loadn, seedl int64) error {
 	var key, value []byte
 
 	markercount, count := int64(1000000), int64(0)
@@ -117,7 +117,7 @@ func boldload(db *bolt.DB, klen, vlen, loadn, seedl int64) error {
 		if count%markercount == 0 {
 			x := time.Since(now).Round(time.Second)
 			y := time.Since(epoch).Round(time.Second)
-			fmsg := "boldload {%v items in %v} {%v items in %v}\n"
+			fmsg := "boltload {%v items in %v} {%v items in %v}\n"
 			fmt.Printf(fmsg, markercount, x, count, y)
 			now = time.Now()
 		}
