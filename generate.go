@@ -4,7 +4,7 @@ import "fmt"
 import "strconv"
 import "math/rand"
 
-var _ = fmt.Sprintf("dummy")
+const minkeysize = 16
 
 // Generate presorted load, always return unique key,
 // return nil after `n` keys.
@@ -36,7 +36,7 @@ func Generateloads(klen, vlen, n int64) func(k, v []byte) ([]byte, []byte) {
 func Generateloadr(
 	klen, vlen, n, seed int64) func(k, v []byte) ([]byte, []byte) {
 
-	var textint [1024]byte
+	var text [1024]byte
 
 	intn := n * rndscale
 	rnd := rand.New(rand.NewSource(seed))
@@ -47,17 +47,9 @@ func Generateloadr(
 		if count >= n {
 			return nil, nil
 		}
-		keynum := makeuniquekey(rnd, bitmap, intn)
-		ascii := strconv.AppendInt(textint[:0], keynum, 10)
-		// create key
-		key = Fixbuffer(key, int64(klen))
-		copy(key, zeros)
-		copy(key[klen-int64(len(ascii)):klen], ascii)
+		ascii, key := makeuniquekey(rnd, bitmap, 0, intn, klen, text[:0], key)
 		//fmt.Printf("load %q\n", key)
-		if value != nil { // create value
-			value = Fixbuffer(value, int64(vlen))
-			copytovalue(value, ascii, klen, vlen)
-		}
+		value = makevalue(vlen, ascii, value)
 
 		count++
 		return key, value
@@ -69,7 +61,7 @@ func Generatecreate(
 	klen, vlen, loadn, insertn,
 	seed int64) func(k, v []byte) ([]byte, []byte) {
 
-	var textint [1024]byte
+	var text [1024]byte
 
 	loadn = int64(loadn * rndscale)
 	intn := (insertn * rndscale)
@@ -77,18 +69,9 @@ func Generatecreate(
 	bitmap := make([]byte, ((intn / 8) + 1))
 
 	return func(key, value []byte) ([]byte, []byte) {
-		keynum := makeuniquekey(rnd, bitmap, intn)
-		keynum += loadn
-		ascii := strconv.AppendInt(textint[:0], int64(keynum), 10)
-		// create key
-		key = Fixbuffer(key, int64(klen))
-		copy(key, zeros)
-		copy(key[klen-int64(len(ascii)):klen], ascii)
+		ascii, key := makeuniquekey(rnd, bitmap, loadn, intn, klen, text[:0], key)
 		//fmt.Printf("create %q\n", key)
-		if value != nil { // create value
-			value = Fixbuffer(value, int64(vlen))
-			copytovalue(value, ascii, klen, vlen)
-		}
+		value = makevalue(vlen, ascii, value)
 		return key, value
 	}
 }
@@ -98,15 +81,15 @@ func Generateupdate(
 	seedl, seedc, mod int64) func(k, v []byte) ([]byte, []byte) {
 
 	var textint [1024]byte
-	var getkey func()
+	var getkey func() int64
 
 	loadn1 := loadn * rndscale
 	intn := insertn * rndscale
 	rndl := rand.New(rand.NewSource(seedl))
 	rndc := rand.New(rand.NewSource(seedc))
-	keynum, lcount := int64(0), int64(0)
+	lcount := int64(0)
 
-	getkey = func() {
+	getkey = func() (keynum int64) {
 		if lcount < loadn { // from load pool, headstart
 			keynum = int64(rndl.Intn(int(loadn1)))
 		} else if (lcount % 3) == 0 { // from create pool
@@ -119,38 +102,33 @@ func Generateupdate(
 			rndl = rand.New(rand.NewSource(seedl))
 		}
 		if mod >= 0 && (keynum%2) != mod {
-			getkey()
+			return getkey()
 		}
+		return keynum
 	}
 
 	return func(key, value []byte) ([]byte, []byte) {
-		getkey()
-		ascii := strconv.AppendInt(textint[:0], int64(keynum), 10)
-		// create key
-		key = Fixbuffer(key, int64(klen))
-		copy(key, zeros)
-		copy(key[klen-int64(len(ascii)):klen], ascii)
+		keynum := getkey()
+		ascii, key := makekey(keynum, klen, textint[:0], key)
 		//fmt.Printf("update %q\n", key)
-		if value != nil { // create value
-			value = Fixbuffer(value, int64(vlen))
-			copytovalue(value, ascii, klen, vlen)
-		}
+		value = makevalue(vlen, ascii, value)
 		return key, value
 	}
 }
 
 func Generateread(
 	klen, loadn, insertn, seedl, seedc int64) func([]byte, int64) []byte {
+
 	var textint [1024]byte
-	var getkey func(int64)
+	var getkey func(int64) int64
 
 	loadn1 := loadn * rndscale
 	intn := insertn * rndscale
 	rndl := rand.New(rand.NewSource(seedl))
 	rndc := rand.New(rand.NewSource(seedc))
-	keynum, lcount := int64(0), int64(0)
+	lcount := int64(0)
 
-	getkey = func(mod int64) {
+	getkey = func(mod int64) (keynum int64) {
 		if lcount < loadn { // from load pool, headstart
 			keynum = int64(rndl.Intn(int(loadn1)))
 		} else if mod > 0 && (lcount%mod) != 0 { // from create pool
@@ -163,14 +141,12 @@ func Generateread(
 			rndl = rand.New(rand.NewSource(seedl))
 			rndc = rand.New(rand.NewSource(seedc))
 		}
+		return keynum
 	}
 
 	return func(key []byte, ncreates int64) []byte {
-		getkey(ncreates / loadn)
-		key = Fixbuffer(key, int64(klen))
-		copy(key, zeros)
-		ascii := strconv.AppendInt(textint[:0], int64(keynum), 10)
-		copy(key[klen-int64(len(ascii)):klen], ascii)
+		keynum := getkey(ncreates / loadn)
+		_, key = makekey(keynum, klen, textint[:0], key)
 		//fmt.Printf("read %q\n", key)
 		return key
 	}
@@ -178,22 +154,20 @@ func Generateread(
 
 func Generatereadseq(klen, loadn, seedl int64) func([]byte, int64) []byte {
 	var textint [1024]byte
-	var getkey func(int64)
+	var getkey func(int64) int64
 
 	rndl := rand.New(rand.NewSource(seedl))
-	keynum, lcount := int64(0), int64(0)
+	lcount := int64(0)
 
-	getkey = func(mod int64) {
+	getkey = func(mod int64) (keynum int64) {
 		keynum = int64(rndl.Intn(int(loadn)))
 		lcount++
+		return keynum
 	}
 
 	return func(key []byte, ncreates int64) []byte {
-		getkey(ncreates / loadn)
-		key = Fixbuffer(key, int64(klen))
-		copy(key, zeros)
-		ascii := strconv.AppendInt(textint[:0], int64(keynum), 10)
-		copy(key[klen-int64(len(ascii)):klen], ascii)
+		keynum := getkey(ncreates / loadn)
+		_, key = makekey(keynum, klen, textint[:0], key)
 		return key
 	}
 }
@@ -204,15 +178,15 @@ func Generatedelete(
 	seedl, seedc, mod int64) func(k, v []byte) ([]byte, []byte) {
 
 	var textint [1024]byte
-	var getkey func()
+	var getkey func() int64
 
 	loadn1 := loadn * rndscale
 	intn := insertn * rndscale
 	rndl := rand.New(rand.NewSource(seedl))
 	rndc := rand.New(rand.NewSource(seedc))
-	keynum, lcount := int64(0), int64(0)
+	lcount := int64(0)
 
-	getkey = func() {
+	getkey = func() (keynum int64) {
 		if lcount < loadn { // from load pool, headstart
 			keynum = int64(rndl.Intn(int(loadn1)))
 		} else if (lcount % 3) == 0 { // from create pool
@@ -225,22 +199,16 @@ func Generatedelete(
 			rndl = rand.New(rand.NewSource(seedl))
 		}
 		if mod >= 0 && (keynum%2) != mod {
-			getkey()
+			return getkey()
 		}
+		return keynum
 	}
 
 	return func(key, value []byte) ([]byte, []byte) {
-		getkey()
-		ascii := strconv.AppendInt(textint[:0], int64(keynum), 10)
-		// create key
-		key = Fixbuffer(key, int64(klen))
-		copy(key, zeros)
-		copy(key[klen-int64(len(ascii)):klen], ascii)
+		keynum := getkey()
+		ascii, key := makekey(keynum, klen, textint[:0], key)
 		//fmt.Printf("delete %q\n", key)
-		if value != nil { // create value
-			value = Fixbuffer(value, int64(vlen))
-			copytovalue(value, ascii, klen, vlen)
-		}
+		value = makevalue(vlen, ascii, value)
 		return key, value
 	}
 }
@@ -249,15 +217,46 @@ var rndscale = int64(3)
 var bitmask = [8]byte{1, 2, 4, 8, 16, 32, 64, 128}
 var zeros = make([]byte, 4096)
 
-func makeuniquekey(rnd *rand.Rand, bitmap []byte, intn int64) int64 {
+func makeuniquekey(
+	rnd *rand.Rand, bitmap []byte, offset, intn int64,
+	klen int64, textint, key []byte) ([]byte, []byte) {
+
 	for true {
 		keynum := int64(rnd.Intn(int(intn)))
 		if (bitmap[keynum/8] & bitmask[keynum%8]) == 0 {
 			bitmap[keynum/8] |= bitmask[keynum%8]
-			return keynum
+			keynum += offset
+			ascii := strconv.AppendInt(textint[:0], keynum, 10)
+			// create key
+			key = Fixbuffer(key, int64(klen))
+			copy(key, zeros)
+			copy(key[klen-int64(len(ascii)):klen], ascii)
+			return ascii, key
 		}
 	}
-	panic("unreachable code")
+	panic(fmt.Errorf("unreachable code"))
+}
+
+func makekey(keynum, klen int64, textint, key []byte) ([]byte, []byte) {
+	ascii := strconv.AppendInt(textint[:0], keynum, 10)
+	// create key
+	key = Fixbuffer(key, int64(klen))
+	copy(key, zeros)
+	copy(key[klen-int64(len(ascii)):klen], ascii)
+	return ascii, key
+}
+
+func makevalue(vlen int64, ascii, value []byte) []byte {
+	if vlen == 0 {
+		return value
+	}
+	if vlen < int64(len(ascii)) {
+		vlen = minkeysize
+	}
+	value = Fixbuffer(value, vlen)
+	copy(value, zeros)
+	copy(value[vlen-int64(len(ascii)):vlen], ascii)
+	return value
 }
 
 func copytovalue(value, ascii []byte, klen, vlen int64) []byte {

@@ -353,11 +353,14 @@ func mvccGet2(
 		if err != nil {
 			panic(err)
 		}
-		if ckey, cdel := cur.Key(); cdel != del {
+		ckey, cdel := cur.Key()
+		if cdel != del {
 			panic(fmt.Errorf("expected %v, got %v", del, cdel))
 		} else if bytes.Compare(ckey, key) != 0 {
 			panic(fmt.Errorf("expected %q, got %q", key, ckey))
-		} else if cvalue := cur.Value(); bytes.Compare(cvalue, value) != 0 {
+		}
+		cvalue := cur.Value()
+		if validate && bytes.Compare(cvalue, value) != 0 {
 			panic(fmt.Errorf("expected %q, got %q", value, cvalue))
 		}
 	}
@@ -375,11 +378,14 @@ func mvccGet3(
 		if err != nil {
 			panic(err)
 		}
-		if ckey, cdel := cur.Key(); cdel != del {
+		ckey, cdel := cur.Key()
+		if cdel != del {
 			panic(fmt.Errorf("expected %v, got %v", del, cdel))
 		} else if bytes.Compare(ckey, key) != 0 {
 			panic(fmt.Errorf("expected %q, got %q", key, ckey))
-		} else if cvalue := cur.Value(); bytes.Compare(cvalue, value) != 0 {
+		}
+		cvalue := cur.Value()
+		if validate && bytes.Compare(cvalue, value) != 0 {
 			panic(fmt.Errorf("expected %q, got %q", value, cvalue))
 		}
 	}
@@ -435,15 +441,17 @@ func mvccRange1(index *llrb.MVCC, key, value []byte) (n int64) {
 	}
 	for i := 0; i < 100; i++ {
 		keyr, value, del, err := cur.GetNext()
-		if err == io.EOF {
-		} else if err != nil {
-			panic(err)
-		} else if x, xerr := strconv.Atoi(Bytes2str(keyr)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x)%2) != delmod && del == true {
-			panic("unexpected delete")
-		} else if del == false {
-			comparekeyvalue(keyr, value, options.vallen)
+		if validate {
+			if err == io.EOF {
+			} else if err != nil {
+				panic(err)
+			} else if x, xerr := strconv.Atoi(Bytes2str(keyr)); xerr != nil {
+				panic(xerr)
+			} else if (int64(x)%2) != delmod && del == true {
+				panic("unexpected delete")
+			} else if del == false {
+				comparekeyvalue(keyr, value, options.vallen)
+			}
 		}
 		n++
 	}
@@ -464,12 +472,14 @@ func mvccRange2(index *llrb.MVCC, key, value []byte) (n int64) {
 		} else if err != nil {
 			panic(err)
 		}
-		if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x)%2) != delmod && del == true {
-			panic("unexpected delete")
-		} else if del == false {
-			comparekeyvalue(key, value, options.vallen)
+		if validate {
+			if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
+				panic(xerr)
+			} else if (int64(x)%2) != delmod && del == true {
+				panic("unexpected delete")
+			} else if del == false {
+				comparekeyvalue(key, value, options.vallen)
+			}
 		}
 		n++
 	}
@@ -490,12 +500,14 @@ func mvccRange3(index *llrb.MVCC, key, value []byte) (n int64) {
 		} else if err != nil {
 			panic(err)
 		}
-		if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x)%2) != delmod && del == true {
-			panic("unexpected delete")
-		} else if del == false {
-			comparekeyvalue(key, value, options.vallen)
+		if validate {
+			if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
+				panic(xerr)
+			} else if (int64(x)%2) != delmod && del == true {
+				panic("unexpected delete")
+			} else if del == false {
+				comparekeyvalue(key, value, options.vallen)
+			}
 		}
 		n++
 	}
@@ -516,12 +528,14 @@ func mvccRange4(index *llrb.MVCC, key, value []byte) (n int64) {
 		} else if err != nil {
 			panic(err)
 		}
-		if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x)%2) != delmod && del == true {
-			panic("unexpected delete")
-		} else if del == false {
-			comparekeyvalue(key, value, options.vallen)
+		if validate {
+			if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
+				panic(xerr)
+			} else if (int64(x)%2) != delmod && del == true {
+				panic("unexpected delete")
+			} else if del == false {
+				comparekeyvalue(key, value, options.vallen)
+			}
 		}
 		n++
 	}

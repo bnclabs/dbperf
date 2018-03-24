@@ -13,8 +13,6 @@ import "github.com/bnclabs/gostore/bogn"
 import "github.com/bnclabs/gostore/api"
 import s "github.com/bnclabs/gosettings"
 
-//import humanize "github.com/dustin/go-humanize" TODO
-
 func perfbogn() error {
 	name := "dbperf"
 	setts := bognsettings(options.seed)
@@ -375,10 +373,13 @@ func bognGet2(
 		ckey, cdel := cur.Key()
 		if bytes.Compare(ckey, key) != 0 {
 			panic(fmt.Errorf("expected %q, got %q", key, ckey))
-		} else if cvalue := cur.Value(); bytes.Compare(cvalue, value) != 0 {
-			panic(fmt.Errorf("key %q expected %q, got %q", key, value, cvalue))
 		} else if cdel != del {
 			panic(fmt.Errorf("key %q expected %v, got %v", key, del, cdel))
+		}
+		cvalue := cur.Value()
+		if validate && bytes.Compare(cvalue, value) != 0 {
+			fmsg := "key %q expected %q, got %q"
+			panic(fmt.Errorf(fmsg, key, value, cvalue))
 		}
 	}
 	txn.Abort()
@@ -398,10 +399,13 @@ func bognGet3(
 		ckey, cdel := cur.Key()
 		if bytes.Compare(ckey, key) != 0 {
 			panic(fmt.Errorf("expected %q, got %q", key, ckey))
-		} else if cvalue := cur.Value(); bytes.Compare(cvalue, value) != 0 {
-			panic(fmt.Errorf("key %s expected %q, got %q", key, value, cvalue))
 		} else if cdel != del {
 			panic(fmt.Errorf("key %s expected %v, got %v", key, del, cdel))
+		}
+		cvalue := cur.Value()
+		if validate && bytes.Compare(cvalue, value) != 0 {
+			fmsg := "key %s expected %q, got %q"
+			panic(fmt.Errorf(fmsg, key, value, cvalue))
 		}
 	}
 	view.Abort()
@@ -456,15 +460,18 @@ func bognRange1(index *bogn.Bogn, key, value []byte) (n int64) {
 	}
 	for i := 0; i < 100; i++ {
 		key, value, del, err := cur.GetNext()
-		if err == io.EOF {
-		} else if err != nil {
-			panic(err)
-		} else if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x)%2) != delmod && del == true {
-			panic("unexpected delete")
-		} else if del == false {
-			comparekeyvalue(key, value, options.vallen)
+		if validate {
+			if err == io.EOF {
+			}
+			if err != nil {
+				panic(err)
+			} else if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
+				panic(xerr)
+			} else if (int64(x)%2) != delmod && del == true {
+				panic("unexpected delete")
+			} else if del == false {
+				comparekeyvalue(key, value, options.vallen)
+			}
 		}
 		n++
 	}
@@ -485,12 +492,14 @@ func bognRange2(index *bogn.Bogn, key, value []byte) (n int64) {
 		} else if err != nil {
 			panic(err)
 		}
-		if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x)%2) != delmod && del == true {
-			panic("unexpected delete")
-		} else if del == false {
-			comparekeyvalue(key, value, options.vallen)
+		if validate {
+			if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
+				panic(xerr)
+			} else if (int64(x)%2) != delmod && del == true {
+				panic("unexpected delete")
+			} else if del == false {
+				comparekeyvalue(key, value, options.vallen)
+			}
 		}
 		n++
 	}
@@ -511,12 +520,14 @@ func bognRange3(index *bogn.Bogn, key, value []byte) (n int64) {
 		} else if err != nil {
 			panic(err)
 		}
-		if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x)%2) != delmod && del == true {
-			panic("unexpected delete")
-		} else if del == false {
-			comparekeyvalue(key, value, options.vallen)
+		if validate {
+			if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
+				panic(xerr)
+			} else if (int64(x)%2) != delmod && del == true {
+				panic("unexpected delete")
+			} else if del == false {
+				comparekeyvalue(key, value, options.vallen)
+			}
 		}
 		n++
 	}
@@ -537,12 +548,14 @@ func bognRange4(index *bogn.Bogn, key, value []byte) (n int64) {
 		} else if err != nil {
 			panic(err)
 		}
-		if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
-			panic(xerr)
-		} else if (int64(x)%2) != delmod && del == true {
-			panic("unexpected delete")
-		} else if del == false {
-			comparekeyvalue(key, value, options.vallen)
+		if validate {
+			if x, xerr := strconv.Atoi(Bytes2str(key)); xerr != nil {
+				panic(xerr)
+			} else if (int64(x)%2) != delmod && del == true {
+				panic("unexpected delete")
+			} else if del == false {
+				comparekeyvalue(key, value, options.vallen)
+			}
 		}
 		n++
 	}

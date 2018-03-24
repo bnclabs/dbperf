@@ -14,6 +14,8 @@ import "github.com/bnclabs/gostore/bogn"
 import "github.com/bnclabs/gostore/bubt"
 import "github.com/bnclabs/gostore/llrb"
 
+var validate = false
+
 var options struct {
 	db          string
 	cpu         int

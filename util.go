@@ -35,6 +35,9 @@ func DirSize(path string) (int64, error) {
 }
 
 func comparekeyvalue(key, value []byte, vlen int) bool {
+	if validate == false {
+		return true
+	}
 	if vlen > 0 && len(value) > 0 {
 		value := value[:len(value)]
 		if len(key) >= vlen {
