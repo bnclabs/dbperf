@@ -30,8 +30,8 @@ func perfbubt() error {
 	iter := makeiterator(klen, vlen, n, delmod)
 	md := generatemeta(seed)
 
-	fmsg := "msize: %v zsize:%v mmap:%v mdsize:%v\n"
-	fmt.Printf(fmsg, msize, zsize, mmap, len(md))
+	fmsg := "msize: %v zsize:%v vsize: %v mmap:%v mdsize:%v\n"
+	fmt.Printf(fmsg, msize, zsize, vsize, mmap, len(md))
 
 	now := time.Now()
 	bt.Build(iter, md)
@@ -43,7 +43,7 @@ func perfbubt() error {
 	if err != nil {
 		panic(err)
 	}
-	defer index.Destroy()
+	//defer index.Destroy()
 	defer index.Close()
 
 	fmsg = "Took %v to build %v entries with footprint %v\n"
