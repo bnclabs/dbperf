@@ -43,7 +43,7 @@ func perfbubt() error {
 	if err != nil {
 		panic(err)
 	}
-	//defer index.Destroy()
+	defer index.Destroy()
 	defer index.Close()
 
 	fmsg = "Took %v to build %v entries with footprint %v\n"
@@ -262,8 +262,15 @@ func bubtpaths(npaths int) []string {
 	path, paths := os.TempDir(), []string{}
 	for i := 0; i < npaths; i++ {
 		base := fmt.Sprintf("%v", i+1)
-		paths = append(paths, filepath.Join(path, base))
-		fmt.Printf("Path %v %q\n", i+1, filepath.Join(path, base))
+		path := filepath.Join(path, base)
+		paths = append(paths, path)
+		fmt.Printf("Path %v %q\n", i+1, path)
+		if err := os.RemoveAll(path); err != nil {
+			panic(err)
+		}
+		if err := os.MkdirAll(path, 0755); err != nil {
+			panic(err)
+		}
 	}
 	return paths
 }
