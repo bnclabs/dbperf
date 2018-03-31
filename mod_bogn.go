@@ -585,6 +585,7 @@ func bognsettings(seed int) s.Settings {
 	//setts["bubt.zblocksize"] = zsizes[rnd.Intn(10000)%len(msizes)]
 	setts["bubt.mblocksize"] = 4096
 	setts["bubt.zblocksize"] = 4096
+	setts["bubt.vblocksize"] = 0
 	if options.memcapacity > 0 {
 		setts["llrb.memcapacity"] = options.memcapacity * 1024 * 1024
 	}
