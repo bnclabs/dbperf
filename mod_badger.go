@@ -92,7 +92,7 @@ func badgerload(db *badger.DB, klen, vlen, loadn, seedl int64) error {
 	markercount, count := int64(1000000), int64(0)
 	g := Generateloadr(klen, vlen, int64(options.load), int64(seedl))
 
-	cmds := make([]*badgerop, 1)
+	cmds := make([]*badgerop, 10000)
 	for off := range cmds {
 		cmds[off] = &badgerop{
 			key:   make([]byte, 0, klen),
@@ -152,7 +152,7 @@ func badgerWriter(
 		klen, vlen, loadn, int64(options.inserts), seedl, seedc, delmod,
 	)
 
-	cmds := make([]*badgerop, 500)
+	cmds := make([]*badgerop, 1)
 	for off := range cmds {
 		cmds[off] = &badgerop{}
 	}
