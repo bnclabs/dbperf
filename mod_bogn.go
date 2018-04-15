@@ -583,9 +583,14 @@ func bognsettings(seed int) s.Settings {
 	setts["bubt.mmap"] = []bool{true, false}[rnd.Intn(10000)%2]
 	//setts["bubt.mblocksize"] = msizes[rnd.Intn(10000)%len(msizes)]
 	//setts["bubt.zblocksize"] = zsizes[rnd.Intn(10000)%len(msizes)]
-	setts["bubt.mblocksize"] = 4096
-	setts["bubt.zblocksize"] = 4096
-	setts["bubt.vblocksize"] = 0
+	setts["bubt.mblocksize"] = options.msize
+	setts["bubt.zblocksize"] = options.msize
+	if options.zsize > 0 {
+		setts["bubt.zblocksize"] = options.zsize
+	}
+	if options.vsize > 0 {
+		setts["bubt.vblocksize"] = options.vsize
+	}
 	if options.memcapacity > 0 {
 		setts["llrb.memcapacity"] = options.memcapacity * 1024 * 1024
 	}
@@ -613,14 +618,16 @@ func bognsettings(seed int) s.Settings {
 	a, b, c := setts["durable"], setts["dgm"], setts["workingset"]
 	fmt.Printf("durable:%v dgm:%v workingset:%v lsm:%v\n", a, b, c, options.lsm)
 	a, b = setts["flushratio"], setts["flushperiod"]
-	fmt.Printf("flushratio:%v flushperiod:%v\n", a, b)
-	a, b = setts["compactratio"], setts["compactperiod"]
-	fmt.Printf("compactratio:%v compactperiod:%v\n", a, b)
+	c, d := setts["compactratio"], setts["compactperiod"]
+	fmsg := "flushratio:%v flushperiod:%v compactratio:%v compactperiod:%v\n"
+	fmt.Printf(fmsg, a, b, c, d)
 	a = setts["llrb.snapshottick"]
 	fmt.Printf("llrb snapshottick:%v\n", a)
 	a, b = setts["bubt.diskpaths"], setts["bubt.mblocksize"]
-	c, d := setts["bubt.zblocksize"], setts["bubt.mmap"]
-	fmt.Printf("bubt diskpaths:%v msize:%v zsize:%v mmap:%v\n", a, b, c, d)
+	c, d = setts["bubt.zblocksize"], setts["bubt.vblocksize"]
+	e := setts["bubt.mmap"]
+	fmsg = "bubt diskpaths:%v msize:%v zsize:%v vsize: %v, mmap:%v\n\n"
+	fmt.Printf(fmsg, a, b, c, d, e)
 
 	return setts
 }

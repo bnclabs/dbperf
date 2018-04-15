@@ -228,24 +228,29 @@ func bubtRange2(index *bubt.Snapshot, key, value []byte) (n int64) {
 	return
 }
 
-func makeiterator(klen, vlen, entries, mod int64) api.Iterator {
+func makeiterator(klen, vlen, entries, mod int64) api.EntryIterator {
 	g := Generateloads(klen, vlen, entries)
-	key, seqno := make([]byte, klen), uint64(0)
-	value := make([]byte, vlen)
+	entry := &indexentry{
+		key: make([]byte, 0, 16), value: make([]byte, 0, 16),
+		seqno: 0, deleted: false, err: nil,
+	}
 
-	return func(fin bool) ([]byte, []byte, uint64, bool, error) {
-		key, value = g(key, value)
-		if key != nil {
-			seqno++
-			x, _ := strconv.Atoi(Bytes2str(key))
-			deleted := false
+	return func(fin bool) api.IndexEntry {
+		entry.key, entry.value = g(entry.key, entry.value)
+		if entry.key != nil {
+			entry.seqno += 1
+			x, _ := strconv.Atoi(Bytes2str(entry.key))
+			entry.deleted = false
 			if (int64(x) % 2) == mod {
-				deleted = true
+				entry.deleted = true
 			}
+			entry.err = nil
 			//fmt.Printf("iterate %q %q %v %v\n", key, value, seqno, deleted)
-			return key, value, seqno, deleted, nil
+			return entry
 		}
-		return nil, nil, 0, false, io.EOF
+		entry.key, entry.value = nil, nil
+		entry.seqno, entry.deleted, entry.err = 0, false, io.EOF
+		return entry
 	}
 }
 
@@ -273,4 +278,28 @@ func bubtpaths(npaths int) []string {
 		}
 	}
 	return paths
+}
+
+type indexentry struct {
+	key     []byte
+	value   []byte
+	seqno   uint64
+	deleted bool
+	err     error
+}
+
+func (entry *indexentry) ID() string {
+	return ""
+}
+
+func (entry *indexentry) Key() ([]byte, uint64, bool, error) {
+	return entry.key, entry.seqno, entry.deleted, entry.err
+}
+
+func (entry *indexentry) Value() []byte {
+	return entry.value
+}
+
+func (entry *indexentry) Valueref() (valuelen uint64, vpos int64) {
+	return 0, -1
 }

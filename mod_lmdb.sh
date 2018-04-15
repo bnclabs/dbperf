@@ -12,7 +12,7 @@ go tool pprof -alloc_space -svg dbperf dbperf.mprof  > alloc_space.svg
 echo
 
 echo "###### incremental load ################################"
-ARGS="-klen 32 -vlen 32"
+ARGS="-klen 32 -vlen 128"
 LOAD="-load 1000000"
 WRITES="-inserts 1000000 -upserts 1000000 -deletes 1000000"
 READS="-gets 10000000 -ranges 10000000"
