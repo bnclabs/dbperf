@@ -37,6 +37,7 @@ var options struct {
 	delas       string
 	getas       string
 	rngas       string
+	flushratio  float64
 	memcapacity int
 	npaths      int
 	msize       int
@@ -66,12 +67,13 @@ func optparse(args []string) {
 	f.IntVar(&options.vallen, "vlen", 32, "size of each value")
 	f.BoolVar(&options.lsm, "lsm", false, "delete in lsm mode.")
 	f.IntVar(&options.seed, "seed", 0, "seed value to generate randomness")
-	f.StringVar(&options.setas, "setas", "all", "set|cas|txn|cur|all")
-	f.StringVar(&options.delas, "delas", "all", "del|txn|cur|delcur|all")
+	f.StringVar(&options.setas, "setas", "set", "set|cas|txn|cur|all")
+	f.StringVar(&options.delas, "delas", "txn", "del|txn|cur|delcur|all")
 	f.StringVar(&options.getas, "getas", "all", "get|txn|view|all")
 	f.StringVar(&options.rngas, "rngas", "all", "tgn|tyn|vgn|vyn|all")
 	f.IntVar(&options.memcapacity, "memcap", 0, "memory cap on llrb/mvcc in MB")
 	f.IntVar(&options.npaths, "npaths", 1, "number of directory paths for bubt")
+	f.Float64Var(&options.flushratio, "flushratio", 0.25, "m-block size for bubt")
 	f.IntVar(&options.msize, "msize", 4096, "m-block size for bubt")
 	f.IntVar(&options.zsize, "zsize", 0, "z-block size for bubt")
 	f.IntVar(&options.vsize, "vsize", 0, "v-block size for bubt")

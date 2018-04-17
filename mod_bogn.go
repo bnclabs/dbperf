@@ -577,9 +577,8 @@ func bognsettings(seed int) s.Settings {
 	rnd := rand.New(rand.NewSource(int64(seed)))
 	setts := bogn.Defaultsettings()
 	setts["memstore"] = options.memstore
-	//setts["flushratio"] = flushratios[rnd.Intn(10000)%len(flushratios)]
-	setts["flushratio"] = 0.5
-	setts["flushperiod"] = 5 // int64(options.period)
+	setts["flushratio"] = options.flushratio
+	setts["autocommit"] = 5 // int64(options.period)
 	setts["bubt.mmap"] = []bool{true, false}[rnd.Intn(10000)%2]
 	//setts["bubt.mblocksize"] = msizes[rnd.Intn(10000)%len(msizes)]
 	//setts["bubt.zblocksize"] = zsizes[rnd.Intn(10000)%len(msizes)]
@@ -617,9 +616,9 @@ func bognsettings(seed int) s.Settings {
 
 	a, b, c := setts["durable"], setts["dgm"], setts["workingset"]
 	fmt.Printf("durable:%v dgm:%v workingset:%v lsm:%v\n", a, b, c, options.lsm)
-	a, b = setts["flushratio"], setts["flushperiod"]
+	a, b = setts["flushratio"], setts["autocommit"]
 	c, d := setts["compactratio"], setts["compactperiod"]
-	fmsg := "flushratio:%v flushperiod:%v compactratio:%v compactperiod:%v\n"
+	fmsg := "flushratio:%v autocommit:%v compactratio:%v compactperiod:%v\n"
 	fmt.Printf(fmsg, a, b, c, d)
 	a = setts["llrb.snapshottick"]
 	fmt.Printf("llrb snapshottick:%v\n", a)

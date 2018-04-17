@@ -3,8 +3,8 @@
 rm dbperf; go build
 
 echo "####### initial build ##################################"
-ARGS="-klen 22 -vlen 128"
-LOAD="-load 30000000"
+ARGS="-klen 22 -vlen 1024"
+LOAD="-load 40000000"
 echo "./dbperf -db badger $ARGS $LOAD"
 ./dbperf -db badger $ARGS $LOAD
 go tool pprof -svg dbperf dbperf.pprof  > pprof.svg
